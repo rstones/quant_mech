@@ -15,15 +15,15 @@ import quant_mech.utils as utils
 
   
 # Function to construct Liouvillian super operator
-# jump_operators should be list of tuples (first entry of tuple is rate, second is lindblad operator)
+# jump_operators should be list of tuples (first entry of tuple is lindblad operator, second is rate)
 def super_operator(H, jump_operators):
     I = np.eye(H.shape[0], H.shape[1])
-    L = -1j * (np.kron(H, I) - np.kron(I, H))
+    L = -1.j * (np.kron(H, I) - np.kron(I, H))
     for tup in jump_operators:
-        A = tup[1]
+        A = tup[0]
         A_dagger = A.conj().T
         A_dagger_A = np.dot(A_dagger, A)
-        L += tup[0] * (np.dot(np.kron(I, A), np.kron(A_dagger, I)) - 0.5 * np.kron(A_dagger_A, I) - 0.5 * np.kron(I, A_dagger_A))
+        L += tup[1] * (np.dot(np.kron(A, I), np.kron(I, A_dagger)) - 0.5 * np.kron(A_dagger_A, I) - 0.5 * np.kron(I, A_dagger_A))
     return L
     
 

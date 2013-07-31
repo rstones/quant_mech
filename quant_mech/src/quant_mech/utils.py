@@ -13,6 +13,7 @@ TODO:
 '''
 
 import numpy as np
+import scipy.linalg as la
 import copy
 
 def lowering_operator(basis_size=2):
@@ -76,3 +77,29 @@ def planck_distribution(freq, temperature):
 def hamiltonian_to_picosecs(hamiltonian):
     return 0.06*np.pi*hamiltonian
 
+def thermal_state(freq, temp, basis_size):
+    kB = 0.695  # boltzmann constant in wavenumbers
+    density_matrix = np.zeros((basis_size, basis_size))
+    Z = 0  #init normalisation constant
+    
+    for i in range(basis_size):
+        x = np.exp(-((i + 0.5)*freq) / (kB*freq))
+        density_matrix[i,i] = x
+        Z += x
+    
+    return density_matrix / Z
+
+# find stationary state of Liouvillian by diagonalisation
+def stationary_state(liouvillian, populations):
+    evalues, evectors = la.eig(liouvillian)
+    currentLargest = float('-inf')
+    currentLargestIndex = 0
+    for i,e in enumerate(evalues):
+        if e > currentLargest:
+            currentLargest = e
+            currentLargestIndex = i
+    stationary_state = evectors[:, currentLargestIndex]
+    
+    dimDM = np.sqrt(stationary_state.shape[0])
+    stationary_state.shape(dimDM, dimDM)    
+    return stationary_state / np.trace(stationary_state)
