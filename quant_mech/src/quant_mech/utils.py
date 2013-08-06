@@ -16,6 +16,8 @@ import numpy as np
 import scipy.linalg as la
 import copy
 
+EV_TO_WAVENUMS = 8065.5
+
 def lowering_operator(basis_size=2):
     op = np.zeros((basis_size, basis_size))
     for i in range(1, basis_size):
@@ -90,7 +92,17 @@ def thermal_state(freq, temp, basis_size):
     return density_matrix / Z
 
 # find stationary state of Liouvillian by diagonalisation
-def stationary_state(liouvillian, populations):
+# assumes Liouvillian is in basis which results from density_matrix.flatten()
+# maybe put in open_systems module
+def stationary_state(liouvillian):
+    stationary_state = stationary_state_unnormalised(liouvillian)
+    
+    dimDM = np.sqrt(stationary_state.shape[0])
+    stationary_state.shape = (dimDM, dimDM)    
+    return (stationary_state / np.trace(stationary_state)).flatten()
+
+def stationary_state_unnormalised(liouvillian):
+    print "Determining stationary state..."
     evalues, evectors = la.eig(liouvillian)
     currentLargest = float('-inf')
     currentLargestIndex = 0
@@ -98,8 +110,4 @@ def stationary_state(liouvillian, populations):
         if e > currentLargest:
             currentLargest = e
             currentLargestIndex = i
-    stationary_state = evectors[:, currentLargestIndex]
-    
-    dimDM = np.sqrt(stationary_state.shape[0])
-    stationary_state.shape(dimDM, dimDM)    
-    return stationary_state / np.trace(stationary_state)
+    return evectors[:, currentLargestIndex]

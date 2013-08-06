@@ -44,6 +44,23 @@ def von_neumann_eqn(init_density_matrix, hamiltonian, duration, timestep, trace_
             dm_history.append(density_matrix)
 
     return dm_history
+
+def liouvillian_time_evolution(init_density_vector, liouvillian, duration, timestep, trace_basis=None, wave_nums=True):
+    
+    if wave_nums:
+        liouvillian = utils.hamiltonian_to_picosecs(liouvillian)
+        
+    timestep_operator = la.expm(liouvillian*timestep)
+    density_vector = init_density_vector
+    dv_history = []
+    dv_history.append(density_vector)
+    
+    for step in range(int(duration/timestep)):
+        density_vector = np.dot(timestep_operator, density_vector)
+        dv_history.append(density_vector)
+
+    return dv_history
+    
     
     
 ############################################################################################################
