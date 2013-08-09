@@ -17,6 +17,7 @@ import scipy.linalg as la
 import copy
 
 EV_TO_WAVENUMS = 8065.5
+EV_TO_JOULES = 1.6022e-19
 
 def lowering_operator(basis_size=2):
     op = np.zeros((basis_size, basis_size))
