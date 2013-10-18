@@ -18,6 +18,7 @@ import copy
 
 EV_TO_WAVENUMS = 8065.5
 EV_TO_JOULES = 1.6022e-19
+KELVIN_TO_WAVENUMS = 0.695
 
 def lowering_operator(basis_size=2):
     op = np.zeros((basis_size, basis_size))
@@ -103,7 +104,6 @@ def stationary_state(liouvillian):
     return (stationary_state / np.trace(stationary_state)).flatten()
 
 def stationary_state_unnormalised(liouvillian):
-    print "Determining stationary state..."
     evalues, evectors = la.eig(liouvillian)
     currentLargest = float('-inf')
     currentLargestIndex = 0
@@ -112,3 +112,11 @@ def stationary_state_unnormalised(liouvillian):
             currentLargest = e
             currentLargestIndex = i
     return evectors[:, currentLargestIndex]
+
+# find stationary state of liouvillian for system of classical rate equations
+# (ie. density matrix for system should be diagonal)
+def classical_stationary_state(liouvillian):
+    stationary_state = stationary_state_unnormalised(liouvillian)
+    stationary_state = np.diag(stationary_state)
+    stationary_state = stationary_state / np.trace(stationary_state)
+    return np.diagonal(stationary_state)
