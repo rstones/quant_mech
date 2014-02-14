@@ -14,11 +14,12 @@ TODO:
 
 import numpy as np
 import scipy.linalg as la
-import copy
 
 EV_TO_WAVENUMS = 8065.5
 EV_TO_JOULES = 1.6022e-19
 KELVIN_TO_WAVENUMS = 0.695
+WAVENUMS_TO_PS = 0.06*np.pi
+WAVENUMS_TO_JOULES = 1.98630e-23
 
 def lowering_operator(basis_size=2):
     op = np.zeros((basis_size, basis_size))
@@ -35,7 +36,7 @@ def orthog_basis_set(basisSize):
 
     for i in range(0, basisSize):
         array[0][i] = 1
-        temp_array = copy.deepcopy(array)
+        temp_array = array.copy()
         basis_set.append(temp_array.T)
         array[0][i] = 0
 
@@ -93,15 +94,25 @@ def thermal_state(freq, temp, basis_size):
     
     return density_matrix / Z
 
-# find stationary state of Liouvillian by diagonalisation
-# assumes Liouvillian is in basis which results from density_matrix.flatten()
-# maybe put in open_systems module
-def stationary_state(liouvillian):
+'''
+Function to find stationary state of Liouvillian by diagonalisation
+Assumes Liouvillian is in basis which results from density_matrix.flatten()
+
+TODO: add check for multiple stationary states ie. warn about evectors that have evalues of same magnitude as smallest evalue
+'''
+def stationary_state(liouvillian, populations=None):
     stationary_state = stationary_state_unnormalised(liouvillian)
     
     dimDM = np.sqrt(stationary_state.shape[0])
-    stationary_state.shape = (dimDM, dimDM)    
-    return (stationary_state / np.trace(stationary_state)).flatten()
+    if dimDM % 1 == 0: # check that dimension is a square number
+        stationary_state.shape = (dimDM, dimDM)    
+        return (stationary_state / np.trace(stationary_state)).flatten()
+    elif dimDM % 1 != 0 and populations.all():
+        return classical_stationary_state(liouvillian)
+    elif populations.any(): # check that populations mask has been provided
+        return stationary_state / np.dot(populations, stationary_state)        
+    else:
+        raise Exception("stationary_state is not square and populations is not defined!")
 
 def stationary_state_unnormalised(liouvillian):
     evalues, evectors = la.eig(liouvillian)
@@ -120,3 +131,13 @@ def classical_stationary_state(liouvillian):
     stationary_state = np.diag(stationary_state)
     stationary_state = stationary_state / np.trace(stationary_state)
     return np.diagonal(stationary_state)
+
+# differentiates a function defined for points on an array
+# f is dependent variable
+# x is independent variable
+def differentiate_function(f, x):
+    dx = x[1] - x[0]
+    result = np.empty(f.shape)
+    for i,v in enumerate(f):
+        result[i] = (f[i+1] - f[i]) / dx if i < f.size-1 else 0
+    return result

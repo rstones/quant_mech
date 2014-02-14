@@ -43,7 +43,7 @@ def von_neumann_eqn(init_density_matrix, hamiltonian, duration, timestep, trace_
         else:
             dm_history.append(density_matrix)
 
-    return dm_history
+    return np.array(dm_history)
 
 def liouvillian_time_evolution(init_density_vector, liouvillian, duration, timestep, trace_basis=None, wave_nums=True):
     
@@ -91,8 +91,8 @@ def markovian_master_eqn_RK4(init_density_matrix, hamiltonian, duration, timeste
         dm_history.append(density_matrix) 
 
     for step in range(0, int(duration/timestep)):
-        if step % 100 == 0:
-            print "Reached step " + str(step)
+#         if step % 100 == 0:
+#             print "Reached step " + str(step)
         
         k1 = timestep * master_equation(density_matrix, hamiltonian, jump_operators)
         k2 = timestep * master_equation(density_matrix + (0.5*k1), hamiltonian, jump_operators)
@@ -106,7 +106,6 @@ def markovian_master_eqn_RK4(init_density_matrix, hamiltonian, duration, timeste
             dm_history.append(density_matrix)
   
     return dm_history
-
 
 # maybe should be in open_systems module
 def lindblad_dissipator(density_matrix, lindblad_operator, rate):

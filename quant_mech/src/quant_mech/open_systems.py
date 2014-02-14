@@ -19,13 +19,20 @@ def super_operator(H, jump_operators):
     print "Constructing super-operator..."
     I = np.eye(H.shape[0], H.shape[1])
     L = -1.j * (np.kron(H, I) - np.kron(I, H))
+    if jump_operators:
+        L += incoherent_super_operator(jump_operators)
+    return L
+
+def incoherent_super_operator(jump_operators):
+    jo_shape = jump_operators[0][0].shape
+    L = np.zeros((jo_shape[0]**2, jo_shape[1]**2))
+    I = np.eye(jo_shape[0])
     for tup in jump_operators:
         A = tup[0]
         A_dagger = A.conj().T
         A_dagger_A = np.dot(A_dagger, A)
         L += tup[1] * (np.kron(A, A) - 0.5 * np.kron(A_dagger_A, I) - 0.5 * np.kron(I, A_dagger_A))
     return L
-    
 
 def markovian_dissipator(density_matrix, lindblad_operator, dissipation_rate):
     lindblad_operator_dagger = lindblad_operator.conj().T
