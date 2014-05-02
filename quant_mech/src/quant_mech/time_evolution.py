@@ -81,7 +81,7 @@ def liouvillian_time_evolution(init_density_vector, liouvillian, duration, times
 def markovian_master_eqn_RK4(init_density_matrix, hamiltonian, duration, timestep, trace_basis=None, jump_operators=None, hamiltonianInWaveNums=True):
 
     if hamiltonianInWaveNums:
-        hamiltonian = 0.06*np.pi*hamiltonian
+        hamiltonian = utils.WAVENUMS_TO_PS * hamiltonian
 
     density_matrix = init_density_matrix
     dm_history = []

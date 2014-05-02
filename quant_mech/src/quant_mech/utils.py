@@ -14,10 +14,12 @@ TODO:
 
 import numpy as np
 import scipy.linalg as la
+import scipy.sparse as sparse
+import scipy.sparse.linalg as spla
 
 EV_TO_WAVENUMS = 8065.5
 EV_TO_JOULES = 1.6022e-19
-KELVIN_TO_WAVENUMS = 0.695
+KELVIN_TO_WAVENUMS = 0.6949
 WAVENUMS_TO_PS = 0.06*np.pi
 WAVENUMS_TO_JOULES = 1.98630e-23
 
@@ -77,7 +79,7 @@ def anticommutator(operator_1, operator_2):
 #
 ########################################################################################################    
 def planck_distribution(freq, temperature):
-    return (np.exp(freq/(0.695*temperature)) - 1) ** -1
+    return (np.exp(freq/(KELVIN_TO_WAVENUMS*temperature)) - 1) ** -1
     
 def hamiltonian_to_picosecs(hamiltonian):
     return 0.06*np.pi*hamiltonian
@@ -88,7 +90,7 @@ def thermal_state(freq, temp, basis_size):
     Z = 0  #init normalisation constant
     
     for i in range(basis_size):
-        x = np.exp(-((i + 0.5)*freq) / (kB*freq))
+        x = np.exp(-((i + 0.5)*freq) / (kB*temp))
         density_matrix[i,i] = x
         Z += x
     
