@@ -143,3 +143,17 @@ def differentiate_function(f, x):
     for i,v in enumerate(f):
         result[i] = (f[i+1] - f[i]) / dx if i < f.size-1 else 0
     return result
+
+'''
+Returns eigenvalues and eigenvectors of the matrix sorted in ascending order
+'''
+def sorted_eig(M):
+    evals, evecs = np.linalg.eig(M)
+    evals_sorted = np.sort(evals)
+    evecs_sorted = []
+    for i in evals_sorted:
+        for j,v in enumerate(evals):
+            if v == i:
+                evecs_sorted.append(evecs.T[j])
+                break
+    return evals_sorted, evecs_sorted

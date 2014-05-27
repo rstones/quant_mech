@@ -38,12 +38,6 @@ def markovian_dissipator(density_matrix, lindblad_operator, dissipation_rate):
     lindblad_operator_dagger = lindblad_operator.conj().T
     return dissipation_rate * (np.dot(lindblad_operator, np.dot(density_matrix, lindblad_operator_dagger)) - 0.5 * utils.anticommutator(np.dot(lindblad_operator_dagger, lindblad_operator), density_matrix))
 
-'''
-Maybe setup HierarchySolver class which has attributes for various system parameters
-(eg. vector containing frequencies(\nu), Hamiltonian parameters, spectral density etc)
-
-'''
-
 # solve differential equation using 4th order Runge-Kutta method (used here for hierarchy code but should probably move to more appropriate module)
 # func is a function that must take 2 parameters, step and state
 def RK4(func, init_state, interval, step_size):
@@ -60,36 +54,24 @@ def RK4(func, init_state, interval, step_size):
         
     return state_evolution
 
-# top level function that returns system density matrix time evolution
-def hierarchy_equations():
-    # solve set of hierarchically coupled equations in matrix form (p' = M.p)
-    # system density matrix and auxiliary density matrices in Liouville space are appended into one column vector (p)
-    # construct init state with non-zero init system density matrix and auxiliary density matrices set to zero
-    # construct matrix M from hierarchy operators expressed in Liouville space
-    pass
+'''
+Brownian oscillator spectral density
+'''    
+def bo_spectral_density(E_reorg, w, w_c):
+    return ((2. * E_reorg) / np.pi) * ((w * w_c) / (w**2 + w_c**2))
 
-# functional form of nth level in hierarchy
-# time_step is time
-# dm is density matrix of current level at given time
-# dm_n_plus_1 is density matrix at next highest level at given time
-# dm_n_minus_1 is density matrix at next lowest level at given time
-# n is vector for current level
-def nth_ode(time_step, dm, dm_n_plus_1, dm_n_minus_1, n):
-    # 
-    pass
+'''
+Bath dependent relaxation rate between excitons
+spectral_density should be a function taking parameters reorganisation energy, transition freq and cutoff freq (in that order, see
+bo_spectral_density function for example)
 
-# phonon-induced relaxation operator
-def theta():
-    pass
+Currently I set w_c = w for spectral density but I don't think this is a general thing, need to change it at some point....
+'''
+def gamma(w, w_c, spectral_density, E_reorg, temperature):
+    return 2. * np.pi * spectral_density(E_reorg, np.abs(w), np.abs(w)) * np.abs(utils.planck_distribution(w, temperature))
 
-# phonon-induced relaxation operator
-def phi():
-    pass
-
-# calculates order at which to terminate hierarchy
-def terminator():
-    pass
-
-# Drude spectral_density for basic hierarchy expansion
-def drude_spectral_density():
-    pass
+'''
+Total relaxation rate between excitons 
+'''
+def Gamma(w, w_c, spectral_density, E_reorg, temperature, ex1, ex2):
+    return gamma(w, w_c, spectral_density, E_reorg, temperature) * np.dot(np.array([np.abs(i)**2 for i in ex1]), np.array([np.abs(i)**2 for i in ex2]))
