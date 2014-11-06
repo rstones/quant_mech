@@ -20,7 +20,7 @@ import scipy.sparse.linalg as spla
 EV_TO_WAVENUMS = 8065.5
 EV_TO_JOULES = 1.6022e-19
 KELVIN_TO_WAVENUMS = 0.6949
-WAVENUMS_TO_PS = 0.06*np.pi
+WAVENUMS_TO_INVERSE_PS = 0.06*np.pi
 WAVENUMS_TO_JOULES = 1.98630e-23
 
 def lowering_operator(basis_size=2):
@@ -84,6 +84,11 @@ def planck_distribution(freq, temperature):
 def hamiltonian_to_picosecs(hamiltonian):
     return 0.06*np.pi*hamiltonian
 
+########################################################################################################
+#
+# Returns thermal state of harmonic oscillator
+#
+######################################################################################################## 
 def thermal_state(freq, temp, basis_size):
     kB = 0.695  # boltzmann constant in wavenumbers
     density_matrix = np.zeros((basis_size, basis_size))
@@ -139,13 +144,13 @@ def classical_stationary_state(liouvillian):
 # x is independent variable
 def differentiate_function(f, x):
     dx = x[1] - x[0]
-    result = np.empty(f.shape)
+    result = np.empty(f.shape, dtype='complex')
     for i,v in enumerate(f):
         result[i] = (f[i+1] - f[i]) / dx if i < f.size-1 else 0
     return result
 
 '''
-Returns eigenvalues and eigenvectors of the matrix sorted in ascending order
+Returns eigenvalues and eigenvectors of the matrix sorted in ascending order of energy
 '''
 def sorted_eig(M):
     evals, evecs = np.linalg.eig(M)
@@ -156,4 +161,13 @@ def sorted_eig(M):
             if v == i:
                 evecs_sorted.append(evecs.T[j])
                 break
-    return evals_sorted, evecs_sorted
+    return evals_sorted, np.array(evecs_sorted)
+
+'''
+Returns Hamiltonian for a quantum harmonic oscillator
+'''
+def vibrational_hamiltonian(freq, basis_size):
+        H_vib = np.zeros((basis_size, basis_size))    
+        for i in range(basis_size):
+            H_vib[i,i] = (i + 0.5)*freq
+        return H_vib
