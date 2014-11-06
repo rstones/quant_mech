@@ -1,0 +1,8 @@
+# ignore complied python files
+*.pyc
+
+# ignore temporary files
+*~
+
+# ignore files in data folder
+data/
