@@ -1,8 +1,8 @@
 clear
-git checkout -b development
+#git checkout -b development
 git add .
 now = date
-echo now
+echo $now
 git commit -m "Auto-commit at $now"
 git push origin development
 exit 0
