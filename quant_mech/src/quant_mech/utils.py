@@ -10,8 +10,6 @@ TODO:
 1) Functions to test physicality of density matrix eg. check trace of rho = 1, rho**2 <= 1 over time
 2) Unit tests
 
-Test comment
-
 '''
 
 import numpy as np
