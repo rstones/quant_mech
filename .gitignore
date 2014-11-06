@@ -6,3 +6,6 @@
 
 # ignore files in data folder
 data/
+
+# ignore bash file to auto push to remote repo
+gitautopush
