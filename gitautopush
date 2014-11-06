@@ -1,0 +1,6 @@
+clear
+git checkout -b development
+git add .
+git commit -m "Auto-commit at ";date
+git push origin development
+exit 0
