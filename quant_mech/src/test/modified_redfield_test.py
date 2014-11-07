@@ -40,12 +40,13 @@ for i,V in enumerate(coupling_values):
     print 'calculating rates for coupling ' + str(V)
     rates = []
     for delta_E in delta_E_values:
-        rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)[1,0])
+        rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)[0,1])
     plt.subplot(1, 3, i+1)
     rates_data.append(rates)
     plt.loglog(delta_E_values, np.array(rates)*utils.WAVENUMS_TO_INVERSE_PS, label=V)
     plt.xlabel(r'$\Delta E$ (cm$^{-1}$)')
     plt.ylabel(r'rate')
+    plt.ylim(0.01, 100)
     plt.legend()
  
 np.savez('../../data/modified_redfield_test_data.npz', rates=rates_data, delta_E_values=delta_E_values, coupling_values=coupling_values, \

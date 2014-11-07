@@ -132,15 +132,23 @@ def exciton_reorg_energy(exciton, E_reorgs):
         result += np.abs(v)**4 * E_reorgs[i]
     return result
 
+'''
+Calculates exciton overlap at a given site
+
+excitons should be an iterable containing the vectors for 2 excitons
+'''
+def exciton_overlap_at_site(excitons, site_index):
+    return excitons[0][site_index].conj() * excitons[1][site_index]
+
 # excitons should be array containing 4 excitons (each exciton occupying a row)
 def generalised_exciton_reorg_energy(excitons, site_reorg_energies):
     # check there are only 4 excitons
     if excitons.shape[0] != 4:
-        raise Exception('More than 4 excitons have been passed to the generalised_exciton_reorg_energy function!')
+        raise Exception('More (or less) than 4 excitons have been passed to the generalised_exciton_reorg_energy function!')
      
     result = 0
     for i,v in enumerate(site_reorg_energies):
-        result += np.prod([np.abs(excitons[j][i]) for j in range(excitons.shape[0])]) * v
+        result += exciton_overlap_at_site(excitons[:2], i) * exciton_overlap_at_site(excitons[2:], i) * v
     return result
 
 '''
@@ -326,10 +334,8 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
     lbf0 = utils.differentiate_function(utils.differentiate_function(lbfs[0], time)[:-5], time)
     lbf1 = utils.differentiate_function(lbfs[1], time)[:-5]
     lbf2 = utils.differentiate_function(lbfs[2], time)[:-5]
-    lbf3 = utils.differentiate_function(lbfs[3], time)[:-5]
-    lbf4 = utils.differentiate_function(lbfs[4], time)[:-5]
-    lbf5 = line_broadening_functions[5][:-5]
-    return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] - 2.*1.j*reorg_energies[0]) * (lbf3[i] - lbf4[i] - 2.*1.j*reorg_energies[1])) * np.exp(2. * (lbf5[i] + 1.j*reorg_energies[2]*t)) for i,t in enumerate(time[:-5])])
+    lbf3 = line_broadening_functions[3][:-5]
+    return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] + 2.*1.j*reorg_energies[0]) ** 2) * np.exp(2. * (lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
 
 def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function, time):
     sample_gap = time[1] - time[0]
@@ -339,7 +345,7 @@ def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function
             if t < v + sample_gap and t > v -sample_gap:
                 time_index = i
                 break
-        return abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index]
+        return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
     
     return 2. * np.real(int.quad(integrand, 0, time[-1])[0])
 
@@ -350,20 +356,17 @@ Initially will assume over-damped Brownian oscillator spectral density for low e
 oscillator spectral density for discrete high energy modes.
 '''
 def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0):
-    time = np.linspace(0, 0.5, 1000)
+    time = np.linspace(0, 0.5, 2000)
     num_sites = site_hamiltonian.shape[0]
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
     # calculate site line broadening functions
-    site_lbf_coeffs = []
-    for reorg_energy in site_reorg_energies:
-        site_lbf_coeffs.append(lbf_coeffs(reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms))
     site_lbfs = []
-    for coeffs in site_lbf_coeffs:
-        site_lbfs.append(site_lbf(time, coeffs))
-    site_lbfs = np.array(site_lbfs)
+    for reorg_energy in site_reorg_energies:
+        site_lbfs.append(site_lbf(time, lbf_coeffs(reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms)))
+    site_lbfs = np.array(site_lbfs, dtype='complex')
     
     # calculate exciton reorg energies and line broadening functions for individual excitons
     exciton_reorg_energies = []
@@ -371,26 +374,24 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     for exciton in evecs:
         exciton_reorg_energies.append(exciton_reorg_energy(exciton, site_reorg_energies))
         exciton_lbfs.append(exciton_lbf(exciton, site_lbfs))
+    exciton_lbfs = np.array(exciton_lbfs, dtype='complex')
         
     # store reorg energies for exciton mixing in N(N-1) x 3 matrix and generalise function to calculate exciton reorg energies
     # store line broadening functions for exciton mixing in N(N-1) x 6 matrix
     num_transitions = num_sites*(num_sites - 1.)
     counter = 0
-    mixing_reorg_energies = np.empty((num_transitions, 3))
-    mixing_line_broadening_functions = np.empty((num_transitions, 6, time.size), dtype='complex')
+    mixing_reorg_energies = np.empty((num_transitions, 2))
+    mixing_line_broadening_functions = np.empty((num_transitions, 4, time.size), dtype='complex')
     for i in range(num_sites):
         for j in range(num_sites):
             if i != j:
                 mixing_reorg_energies[counter, 0] = generalised_exciton_reorg_energy(np.array([evecs[j], evecs[i], evecs[j], evecs[j]]), site_reorg_energies)
-                mixing_reorg_energies[counter, 1] = generalised_exciton_reorg_energy(np.array([evecs[i], evecs[j], evecs[j], evecs[j]]), site_reorg_energies)
-                mixing_reorg_energies[counter, 2] = generalised_exciton_reorg_energy(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_reorg_energies)
+                mixing_reorg_energies[counter, 1] = generalised_exciton_reorg_energy(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_reorg_energies)
                 
-                mixing_line_broadening_functions[counter, 0] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[i], evecs[j]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 1] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[i], evecs[i]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 2] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[j], evecs[j]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 3] = generalised_exciton_lbf(np.array([evecs[i], evecs[j], evecs[i], evecs[i]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 4] = generalised_exciton_lbf(np.array([evecs[i], evecs[j], evecs[j], evecs[j]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 5] = generalised_exciton_lbf(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_lbfs)
+                mixing_line_broadening_functions[counter, 0] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[j], evecs[i]]), site_lbfs)
+                mixing_line_broadening_functions[counter, 1] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[j], evecs[j]]), site_lbfs)
+                mixing_line_broadening_functions[counter, 2] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[i], evecs[i]]), site_lbfs)
+                mixing_line_broadening_functions[counter, 3] = generalised_exciton_lbf(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_lbfs)
                 
                 counter += 1
                 
@@ -418,7 +419,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     for i in range(num_sites):
         for j in range(num_sites):
             if i != j:
-                rates[i,j] = modified_redfield_integration(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5], mixing_function[i,j], time[:-5])
+                rates[i,j] = modified_redfield_integration(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
     return rates
     #pass
