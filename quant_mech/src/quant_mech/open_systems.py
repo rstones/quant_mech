@@ -339,6 +339,22 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
 
 def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function, time):
     sample_gap = time[1] - time[0]
+    
+#     integral = 0
+#     
+#     # break integration into subsections
+#     for i in range((time.size/50)-1):
+#         def integrand(t):
+#             time_index = 0
+#             for i,v in enumerate(time):
+#                 if t < v + sample_gap and t > v -sample_gap:
+#                     time_index = i
+#                     break
+#             return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
+#         
+#         integral += 2. * int.quad(integrand, time[50*i], time[50*(i+1)])[0]
+#     
+#     return integral
     def integrand(t):
         time_index = 0
         for i,v in enumerate(time):
@@ -346,8 +362,8 @@ def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function
                 time_index = i
                 break
         return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
-    
-    return 2. * np.real(int.quad(integrand, 0, time[-1])[0])
+     
+    return 2. * int.quad(integrand, 0, time[-1])[0]
 
 '''
 Calculates exciton population transfer rates using modified Redfield theory
@@ -356,7 +372,7 @@ Initially will assume over-damped Brownian oscillator spectral density for low e
 oscillator spectral density for discrete high energy modes.
 '''
 def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0):
-    time = np.linspace(0, 0.5, 2000)
+    time = np.linspace(0, 0.5, 2005)
     num_sites = site_hamiltonian.shape[0]
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
@@ -421,6 +437,6 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates
+    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
     #pass
 
