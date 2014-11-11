@@ -12,7 +12,7 @@ import quant_mech.utils as utils
 import quant_mech.open_systems as os
 
 e1 = 1000.
-delta_E_values = np.linspace(0,e1,100) # wavenumbers
+delta_E_values = np.linspace(0,e1,1000) # wavenumbers
 coupling_values = np.array([20., 100., 500.]) # wavenumbers
 
 def hamiltonian(delta_E, V):

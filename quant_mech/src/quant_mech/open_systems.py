@@ -269,6 +269,9 @@ coeffs is array of expansion coefficients for given site
 def site_lbf(time, coeffs):
     return np.array([np.sum([line_broadening_function_term(c[0], c[1], t) for c in coeffs], dtype='complex') for t in time])
 
+def site_lbf2(t, coeffs):
+    return np.sum([line_broadening_function_term(c[0], c[1], t) for c in coeffs])
+
 '''
 Calculates line broadening function for an exciton given the line broadening 
 '''
@@ -289,8 +292,13 @@ def generalised_exciton_lbf(excitons, site_lbfs):
     num_time_pts = site_lbfs[0].shape[0]
     result = np.zeros(num_time_pts, dtype='complex')
     for i in range(num_time_pts):
-        result[i] = np.sum([np.prod([np.abs(excitons[k][j]) for k in range(excitons.shape[0])]) * site_lbfs[j][i] for j in range(num_excitons)])
+        #result[i] = np.sum([np.prod([np.abs(excitons[k][j]) for k in range(excitons.shape[0])]) * site_lbfs[j][i] for j in range(num_excitons)])
+        result[i] = np.sum([exciton_overlap_at_site(excitons[:2], j) * exciton_overlap_at_site(excitons[2:], j) * site_lbfs[j][i] for j in range(num_excitons)])
     return result
+
+def generalised_exciton_lbf2(t, excitons, lbf_coeffs):
+    num_excitons = lbf_coeffs.shape[0]
+    return np.sum([exciton_overlap_at_site(excitons[:2], j) * exciton_overlap_at_site(excitons[2:], j) * site_lbf2(t, lbf_coeffs[j]) for j in range(num_excitons)])
 
 '''
 lbf is already defined at each time step before passing to FFT function
@@ -310,6 +318,9 @@ Returns absorption line shape as a function of time
 def absorption_line_shape(time, state_freq, lbf):
     return np.array([np.exp(-1.j * state_freq * t  - lbf[i]) for i,t in enumerate(time)])
 
+def absorption_line_shape2(t, state_freq, excitons, lbf_coeffs):
+    return np.exp(-1.j * state_freq * t  - generalised_exciton_lbf2(t, excitons, lbf_coeffs))
+
 def fluorescence_line_shape_FFT(time, state_freq, E_reorg, lbf, lifetime=None):
     N =  time.shape[0]
     integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - (t/lifetime) if lifetime else 0) for i,t in enumerate(time)])
@@ -325,6 +336,9 @@ Calculates fluoresence line shape as function of time
 '''
 def fluorescence_line_shape(time, state_freq, reorg_energy, lbf):
     return np.array([np.exp((-1.j*state_freq*t) + (2.j*reorg_energy*t) - lbf[i].conj()) for i,t in enumerate(time)])
+
+def fluorescence_line_shape2(t, state_freq, reorg_energy, excitons, lbf_coeffs):
+    return np.exp((-1.j*state_freq*t) + (2.j*reorg_energy*t) - generalised_exciton_lbf2(t, excitons, lbf_coeffs).conj())
 
 '''
 Calculates exciton mixing function used in modified Redfield theory
@@ -358,7 +372,7 @@ def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function
     def integrand(t):
         time_index = 0
         for i,v in enumerate(time):
-            if t < v + sample_gap and t > v -sample_gap:
+            if (t < v + sample_gap) and (t > v - sample_gap):
                 time_index = i
                 break
         return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
@@ -438,5 +452,4 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 rates[i,j] = modified_redfield_integration(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
     return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
-    #pass
 
