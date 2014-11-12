@@ -331,6 +331,12 @@ def fluorescence_line_shape_FFT(time, state_freq, E_reorg, lbf, lifetime=None):
     
     return 2*np.real(lineshape)
 
+def FFT_freq(time):
+    dt = time[1] - time[0]
+    N =  time.shape[0]
+    freq = 2.*np.pi*fft.fftfreq(N, dt)
+    return np.append(freq[N/2:], freq[:N/2])
+
 '''
 Calculates fluoresence line shape as function of time
 '''
@@ -378,6 +384,52 @@ def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function
         return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
      
     return 2. * int.quad(integrand, 0, time[-1])[0]
+
+def modified_redfield_integration_simps(abs_line_shape, fl_line_shape, mixing_function, time):
+    integrand = abs_line_shape * fl_line_shape * mixing_function
+    return 2. * int.simps(np.real(integrand), time)
+
+def modified_redfield_integration_trapz(abs_line_shape, fl_line_shape, mixing_function, time):
+    return 2. * np.trapz(np.real(abs_line_shape * fl_line_shape * mixing_function), time)
+
+def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mixing_function, time):
+    N =  time.shape[0]
+    abs_freq = time[-1] * fft.ifft(abs_line_shape, N)
+    abs_freq = np.append(abs_freq[N/2:], abs_freq[:N/2])
+    fl_freq = time[-1] * fft.ifft(fl_line_shape, N)
+    fl_freq = np.append(fl_freq[N/2:], fl_freq[:N/2])
+    mix_freq = time[-1] * fft.ifft(mixing_function, N)
+    mix_freq = np.append(mix_freq[N/2:], mix_freq[:N/2])
+    freq = FFT_freq(time)
+    num_freq_samples = freq.shape[0]
+    freq_min = freq[0]
+    freq_max = freq[-1]
+    freq_gap = np.abs(freq[0]) - np.abs(freq[1])
+    
+    # restrict frequency range of Fourier transforms of abs and fl line shapes so they are defined on -omega_max/2 -> +omega_max/2
+    #
+    # N(omega-omega') will then be defined over -omega_max -> omega_max and we can pick the values from Fourier transform 
+    # of N(t) which is defined over -omega_max -> omega_max
+    # 
+    # do integration over -omega_max/2 -> +omega_max/2
+    #
+    # to optimise it would be best to centre the frequency range for omega anf omega' at the peak
+    
+    # w1 is the dimension along the rows (is constant vertically)
+    fl_grid = np.vstack((fl_freq for i in range(num_freq_samples)))
+    # w2 is the dimension along the columns (is constant horizontally)
+    abs_grid = np.vstack(abs_freq for i in range(num_freq_samples)).T
+    mix_grid = np.empty((num_freq_samples, num_freq_samples))
+    # populate mix_grid with freq differences
+    for i,w1 in enumerate(freq):
+        for j,w2 in enumerate(freq):
+            w_diff = w1 - w2
+            if freq_min < w_diff < freq_max:
+                for k,v in enumerate(mix_freq):
+                    if v - freq_gap < w_diff < v + freq_gap:
+                        mix_grid[i,j] = v
+                     
+    return 1./(np.pi**2) * int.simps(int.simps(fl_grid * abs_grid * mix_grid))
 
 '''
 Calculates exciton population transfer rates using modified Redfield theory
@@ -449,7 +501,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     for i in range(num_sites):
         for j in range(num_sites):
             if i != j:
-                rates[i,j] = modified_redfield_integration(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
+                rates[i,j] = modified_redfield_integration_freq_domain(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
     return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
