@@ -23,7 +23,8 @@ reorg_energy = 100. # wavenumbers
 cutoff_freq = 53. # wavenumbers
 temperature = 300.
 
-a = os.modified_redfield_relaxation_rates(hamiltonian(100., 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 20)
+a = os.modified_redfield_relaxation_rates(hamiltonian(100., 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)
+print a
 
 # rates_data = []
 #    

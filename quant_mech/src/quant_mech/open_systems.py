@@ -349,7 +349,7 @@ def fluorescence_line_shape2(t, state_freq, reorg_energy, excitons, lbf_coeffs):
 '''
 Calculates exciton mixing function used in modified Redfield theory
 '''
-def modified_redfield_mixing_function(line_broadening_functions, reorg_energies, time):
+def modified_redfield_mixing_function(line_broadening_functions, reorg_energies, time):    
     lbfs = line_broadening_functions
     lbf0 = utils.differentiate_function(utils.differentiate_function(lbfs[0], time)[:-5], time)
     lbf1 = utils.differentiate_function(lbfs[1], time)[:-5]
@@ -393,6 +393,13 @@ def modified_redfield_integration_trapz(abs_line_shape, fl_line_shape, mixing_fu
     return 2. * np.trapz(np.real(abs_line_shape * fl_line_shape * mixing_function), time)
 
 def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mixing_function, time):
+    import matplotlib.pyplot as plt
+    plt.plot(time, abs_line_shape, label='abs')
+    plt.plot(time, fl_line_shape, label='fl')
+    plt.plot(time, mixing_function, label='mix')
+    plt.legend()
+    plt.show()
+    
     N =  time.shape[0]
     abs_freq = time[-1] * fft.ifft(abs_line_shape, N)
     abs_freq = np.append(abs_freq[N/2:], abs_freq[:N/2])
@@ -406,29 +413,51 @@ def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mix
     freq_max = freq[-1]
     freq_gap = np.abs(freq[0]) - np.abs(freq[1])
     
-    # restrict frequency range of Fourier transforms of abs and fl line shapes so they are defined on -omega_max/2 -> +omega_max/2
-    #
-    # N(omega-omega') will then be defined over -omega_max -> omega_max and we can pick the values from Fourier transform 
-    # of N(t) which is defined over -omega_max -> omega_max
-    # 
-    # do integration over -omega_max/2 -> +omega_max/2
-    #
-    # to optimise it would be best to centre the frequency range for omega anf omega' at the peak
     
-    # w1 is the dimension along the rows (is constant vertically)
-    fl_grid = np.vstack((fl_freq for i in range(num_freq_samples)))
-    # w2 is the dimension along the columns (is constant horizontally)
-    abs_grid = np.vstack(abs_freq for i in range(num_freq_samples)).T
-    mix_grid = np.empty((num_freq_samples, num_freq_samples))
-    # populate mix_grid with freq differences
-    for i,w1 in enumerate(freq):
-        for j,w2 in enumerate(freq):
+#     plt.plot(freq, abs_freq, label='abs')
+#     plt.plot(freq, fl_freq, label='fl')
+#     plt.plot(freq, mix_freq, label="mix")
+#     plt.legend()
+#     plt.show()
+    
+    # find midpoint of absorption and fluorescence peaks, centre freq range around this point
+    freq_abs_max = freq[np.abs(abs_freq - np.amax(abs_freq)).argmin()]
+    freq_fl_max = freq[np.abs(fl_freq - np.amax(fl_freq)).argmin()]
+    peak_midpoint = (freq_abs_max + freq_fl_max) / 2.
+    print "peak midpoint: " + str(peak_midpoint)
+    # find index of midpoint freq
+    midpoint_index = 0
+    for i,w in enumerate(freq):
+        if w - freq_gap < peak_midpoint < w + freq_gap:
+            midpoint_index = i
+            break
+    print "midpoint index: " + str(midpoint_index)
+    # freq range for abs and fl functions will then be number of samples from midpoint to nearest end of range
+    abs_fl_freq_range =  0
+    if midpoint_index >= num_freq_samples/2:
+        samples_til_end = num_freq_samples - midpoint_index
+        abs_fl_freq_range = samples_til_end if samples_til_end % 2 == 0 else samples_til_end - 1
+    print "abs fl freq range: " + str(abs_fl_freq_range)
+    
+    # restrict freq samples, abs and fl functions to symmetric freq interval around midpoint of abs and fl peaks
+    freq_interval = freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
+    abs_interval = abs_freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
+    fl_interval = fl_freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
+    print "fl interval: " + str(fl_interval.shape)
+    
+    # abs and fl function need to be defined in 2D space (dimensions w1 and w2, where fl is a function of w1 and abs a function of w2 and both 
+    # constant in the other argument)
+    num_freq_interval_samples = freq_interval.shape[0]
+    fl_grid = np.vstack((fl_interval for i in range(num_freq_interval_samples)))
+    abs_grid = np.vstack((abs_interval for i in range(num_freq_interval_samples))).T
+    
+    # now define mixing function over range twice as big as that for abs and fl functions (since its argument is a frequency difference)
+    mix_grid = np.empty((num_freq_interval_samples, num_freq_interval_samples))
+    for i,w1 in enumerate(freq_interval):
+        for j,w2 in enumerate(freq_interval):
             w_diff = w1 - w2
-            if freq_min < w_diff < freq_max:
-                for k,v in enumerate(mix_freq):
-                    if v - freq_gap < w_diff < v + freq_gap:
-                        mix_grid[i,j] = v
-                     
+            mix_grid[i,j] = mix_freq[np.abs(freq_interval-w_diff).argmin()] # this indexes mix_freq at index of element of freq nearest to w_diff  
+
     return 1./(np.pi**2) * int.simps(int.simps(fl_grid * abs_grid * mix_grid))
 
 '''
@@ -443,6 +472,10 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
     evals, evecs = utils.sorted_eig(site_hamiltonian)
+    print "evals: " + str(evals)
+    print "evecs: " + str(evecs)
+    print exciton_overlap_at_site(evecs, 0)
+    print exciton_overlap_at_site(evecs, 1)
     
     # calculate site line broadening functions
     site_lbfs = []
@@ -477,6 +510,12 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 
                 counter += 1
                 
+    import matplotlib.pyplot as plt
+    for i,lbf in enumerate(mixing_line_broadening_functions[0]):
+        plt.plot(time, lbf, label='lbf ' + str(i))
+    plt.legend()
+    plt.show()
+                
     # calculate fluoresence and absorption via FFT for each exciton
     abs_lineshapes = np.empty((num_sites, time.size), dtype='complex')
     fl_lineshapes = np.empty((num_sites, time.size), dtype='complex')
@@ -497,7 +536,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     #return mixing_line_broadening_functions[0], time
     
     # put everything together to calculate modified Redfield rates between all excitons
-    rates = np.empty((num_sites, num_sites))
+    rates = np.zeros((num_sites, num_sites))
     for i in range(num_sites):
         for j in range(num_sites):
             if i != j:
