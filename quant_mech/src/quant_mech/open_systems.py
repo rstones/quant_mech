@@ -394,11 +394,11 @@ def modified_redfield_integration_trapz(abs_line_shape, fl_line_shape, mixing_fu
 
 def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mixing_function, time):
     import matplotlib.pyplot as plt
-    plt.plot(time, abs_line_shape, label='abs')
-    plt.plot(time, fl_line_shape, label='fl')
-    plt.plot(time, mixing_function, label='mix')
-    plt.legend()
-    plt.show()
+#     plt.loglog(time, np.abs(abs_line_shape), label='abs')
+#     plt.loglog(time, np.abs(fl_line_shape), label='fl')
+#     plt.loglog(time, np.abs(mixing_function), label='mix')
+#     plt.legend()
+#     plt.show()
     
     N =  time.shape[0]
     abs_freq = time[-1] * fft.ifft(abs_line_shape, N)
@@ -414,11 +414,11 @@ def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mix
     freq_gap = np.abs(freq[0]) - np.abs(freq[1])
     
     
-#     plt.plot(freq, abs_freq, label='abs')
-#     plt.plot(freq, fl_freq, label='fl')
-#     plt.plot(freq, mix_freq, label="mix")
-#     plt.legend()
-#     plt.show()
+    plt.plot(freq, abs_freq, label='abs')
+    plt.plot(freq, fl_freq, label='fl')
+    #plt.plot(freq, mix_freq, label="mix")
+    plt.legend()
+    plt.show()
     
     # find midpoint of absorption and fluorescence peaks, centre freq range around this point
     freq_abs_max = freq[np.abs(abs_freq - np.amax(abs_freq)).argmin()]
