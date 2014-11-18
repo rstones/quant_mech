@@ -355,26 +355,27 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
     lbf1 = utils.differentiate_function(lbfs[1], time)[:-5]
     lbf2 = utils.differentiate_function(lbfs[2], time)[:-5]
     lbf3 = line_broadening_functions[3][:-5]
+    
+    import matplotlib.pyplot as plt
+#     plt.plot(time[:-5], lbf0, label='0')
+#     plt.plot(time[:-5], lbf1, label='1')
+#     plt.plot(time[:-5], lbf2, label='2')
+#     plt.plot(time[:-5], lbf3, label='3')
+#     plt.legend()
+    f = np.array([np.exp(2.*(lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
+    plt.plot(time[:-5], np.real(f), label='real')
+    plt.plot(time[:-5], np.imag(f), label='imag')
+    plt.show()
+    
     return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] + 2.*1.j*reorg_energies[0]) ** 2) * np.exp(2. * (lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
 
+'''
+Uses quad function (this is not that reliable as it is not made to integrate a function sampled at given time intervals, use
+modified_redfield_integration_simps instead)
+'''
 def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function, time):
     sample_gap = time[1] - time[0]
-    
-#     integral = 0
-#     
-#     # break integration into subsections
-#     for i in range((time.size/50)-1):
-#         def integrand(t):
-#             time_index = 0
-#             for i,v in enumerate(time):
-#                 if t < v + sample_gap and t > v -sample_gap:
-#                     time_index = i
-#                     break
-#             return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
-#         
-#         integral += 2. * int.quad(integrand, time[50*i], time[50*(i+1)])[0]
-#     
-#     return integral
+
     def integrand(t):
         time_index = 0
         for i,v in enumerate(time):
@@ -414,11 +415,11 @@ def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mix
     freq_gap = np.abs(freq[0]) - np.abs(freq[1])
     
     
-    plt.plot(freq, abs_freq, label='abs')
-    plt.plot(freq, fl_freq, label='fl')
-    #plt.plot(freq, mix_freq, label="mix")
-    plt.legend()
-    plt.show()
+#     plt.plot(freq, abs_freq, label='abs')
+#     plt.plot(freq, fl_freq, label='fl')
+#     #plt.plot(freq, mix_freq, label="mix")
+#     plt.legend()
+#     plt.show()
     
     # find midpoint of absorption and fluorescence peaks, centre freq range around this point
     freq_abs_max = freq[np.abs(abs_freq - np.amax(abs_freq)).argmin()]
@@ -510,12 +511,6 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 
                 counter += 1
                 
-    import matplotlib.pyplot as plt
-    for i,lbf in enumerate(mixing_line_broadening_functions[0]):
-        plt.plot(time, lbf, label='lbf ' + str(i))
-    plt.legend()
-    plt.show()
-                
     # calculate fluoresence and absorption via FFT for each exciton
     abs_lineshapes = np.empty((num_sites, time.size), dtype='complex')
     fl_lineshapes = np.empty((num_sites, time.size), dtype='complex')
@@ -531,6 +526,21 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 mixing_function[i,j] = modified_redfield_mixing_function(mixing_line_broadening_functions[start_index], mixing_reorg_energies[start_index], time)
                 start_index += 1
+    
+#     lbfs = mixing_line_broadening_functions[0]
+#     
+#     print "exciton overlaps: "
+#     for n in range(num_sites):
+#         print exciton_overlap_at_site(np.array([evecs[1], evecs[0]]), n) * exciton_overlap_at_site(np.array([evecs[1], evecs[1]]), n)
+#     
+#     import matplotlib.pyplot as plt
+#     for i,v in enumerate(lbfs):
+#         plt.plot(time, np.real(np.exp(-v)), label=i)
+#         plt.plot(time, np.imag(np.exp(-v)), ls='--', label=i)
+#     #plt.plot(time[:-5], mixing_function[0,1], label='mix')
+#     plt.ylim(-3,3)
+#     plt.legend()
+#     plt.show()
     
     #return np.real(np.array([abs_lineshapes[0][i]*fl_lineshapes[1][i]*mixing_function[1,0][i] for i in range(time.size)])), time
     #return mixing_line_broadening_functions[0], time
