@@ -7,6 +7,7 @@ Module to test code that calculates modified Redfield rates
 '''
 import numpy as np
 import numpy.fft as fft
+import scipy.integrate as int
 import matplotlib.pyplot as plt
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
@@ -23,9 +24,24 @@ reorg_energy = 100. # wavenumbers
 cutoff_freq = 53. # wavenumbers
 temperature = 300.
 
-a = os.modified_redfield_relaxation_rates(hamiltonian(100., 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)
-print a
+# for i,delta_E in enumerate(delta_E_values):
+#     integrand, time = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)
+#     np.savetxt('/home/rstones/numpy_external_data/modified_redfield_integrand'+str(i+1)+'.txt', np.real(integrand), fmt='%.10f')
+#     np.savetxt('/home/rstones/numpy_external_data/modified_redfield_time.txt', time, fmt='%.10f')
+#     
+# np.savetxt('/home/rstones/numpy_external_data/modified_redfield_delta_E_values.txt', delta_E_values, fmt='%.10f')
 
+rates = []
+time = np.loadtxt('/home/rstones/numpy_external_data/modified_redfield_time.txt')
+delta_E_values = np.loadtxt('/home/rstones/numpy_external_data/modified_redfield_delta_E_values.txt')
+
+for i,delta_E in enumerate(delta_E_values):
+    data = np.loadtxt('/home/rstones/numpy_external_data/modified_redfield_integrand'+str(i+1)+'.txt')
+    rates.append(int.simps(data, time))
+
+plt.loglog(delta_E_values, 0.06*np.pi*np.array(rates))
+plt.show()            
+                 
 # rates_data = []
 #    
 # for i,V in enumerate(coupling_values):

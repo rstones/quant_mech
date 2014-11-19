@@ -356,16 +356,16 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
     lbf2 = utils.differentiate_function(lbfs[2], time)[:-5]
     lbf3 = line_broadening_functions[3][:-5]
     
-    import matplotlib.pyplot as plt
-#     plt.plot(time[:-5], lbf0, label='0')
-#     plt.plot(time[:-5], lbf1, label='1')
-#     plt.plot(time[:-5], lbf2, label='2')
-#     plt.plot(time[:-5], lbf3, label='3')
-#     plt.legend()
-    f = np.array([np.exp(2.*(lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
-    plt.plot(time[:-5], np.real(f), label='real')
-    plt.plot(time[:-5], np.imag(f), label='imag')
-    plt.show()
+#     import matplotlib.pyplot as plt
+# #     plt.plot(time[:-5], lbf0, label='0')
+# #     plt.plot(time[:-5], lbf1, label='1')
+# #     plt.plot(time[:-5], lbf2, label='2')
+# #     plt.plot(time[:-5], lbf3, label='3')
+# #     plt.legend()
+#     f = np.array([np.exp(2.*(lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
+#     plt.plot(time[:-5], np.real(f), label='real')
+#     plt.plot(time[:-5], np.imag(f), label='imag')
+#     plt.show()
     
     return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] + 2.*1.j*reorg_energies[0]) ** 2) * np.exp(2. * (lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
 
@@ -544,6 +544,8 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     
     #return np.real(np.array([abs_lineshapes[0][i]*fl_lineshapes[1][i]*mixing_function[1,0][i] for i in range(time.size)])), time
     #return mixing_line_broadening_functions[0], time
+    
+    return np.array([abs_lineshapes[0][:-5][i] * fl_lineshapes[0][:-5].conj()[i] * mixing_function[0,1][i] for i,t in enumerate(time[:-5])]), time[:-5]
     
     # put everything together to calculate modified Redfield rates between all excitons
     rates = np.zeros((num_sites, num_sites))
