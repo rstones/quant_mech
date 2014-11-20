@@ -545,14 +545,14 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     #return np.real(np.array([abs_lineshapes[0][i]*fl_lineshapes[1][i]*mixing_function[1,0][i] for i in range(time.size)])), time
     #return mixing_line_broadening_functions[0], time
     
-    return np.array([abs_lineshapes[0][:-5][i] * fl_lineshapes[0][:-5].conj()[i] * mixing_function[0,1][i] for i,t in enumerate(time[:-5])]), time[:-5]
+    #return np.array([abs_lineshapes[0][:-5][i] * fl_lineshapes[1][:-5].conj()[i] * mixing_function[0,1][i] for i,t in enumerate(time[:-5])]), time[:-5]
     
     # put everything together to calculate modified Redfield rates between all excitons
     rates = np.zeros((num_sites, num_sites))
     for i in range(num_sites):
         for j in range(num_sites):
             if i != j:
-                rates[i,j] = modified_redfield_integration_freq_domain(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
+                rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
     return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
