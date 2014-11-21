@@ -473,10 +473,6 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
     evals, evecs = utils.sorted_eig(site_hamiltonian)
-    print "evals: " + str(evals)
-    print "evecs: " + str(evecs)
-    print exciton_overlap_at_site(evecs, 0)
-    print exciton_overlap_at_site(evecs, 1)
     
     # calculate site line broadening functions
     site_lbfs = []
@@ -485,6 +481,10 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     site_lbfs = np.array(site_lbfs, dtype='complex')
     
     # calculate exciton reorg energies and line broadening functions for individual excitons
+    # first calculate the contribution to total reorganisation energy of sites due to high energy modes and include this in site reorg energies
+    # (this currently assumes all sites have same spectral density)
+    high_energy_reorg_energy = np.sum([mode_params[0]*mode_params[1] for mode_params in high_energy_mode_params]) if high_energy_mode_params is not None and high_energy_mode_params.any() else 0
+    site_reorg_energies += high_energy_reorg_energy
     exciton_reorg_energies = []
     exciton_lbfs = []
     for exciton in evecs:
