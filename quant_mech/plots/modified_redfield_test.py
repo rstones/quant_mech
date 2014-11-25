@@ -16,18 +16,18 @@ delta_E_values = data['delta_E_values']
 coupling_values = data['coupling_values']
 
 for i,V in enumerate(coupling_values):
-    plt.subplot(1,3,i+1)
+    plt.subplot(1, coupling_values.size, i+1)
     plt.loglog(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*rates[i], label='V = ' + str(V), linewidth=2)
     
     # plot extracted data from Ed's thesis
-    xdata, ydata = np.loadtxt('../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
-    plt.loglog(xdata, ydata, color='red')
+#     xdata, ydata = np.loadtxt('../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
+#     plt.loglog(xdata, ydata, color='red')
     #s = interp.UnivariateSpline(xdata, ydata, k=2, s=None)
     #plt.loglog(xdata, s(xdata), color='red')
 
     plt.xlim(5,1000)
     plt.ylim(0.01,200)
     plt.xlabel(r'$\Delta E$ (cm$^{-1}$)')
-    plt.ylabel(r'rate (ps$^{-1}$)')
+    plt.ylabel(r'rate (ps$^{-1}$)') if i == 0 else None
 
 plt.show()
