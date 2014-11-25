@@ -468,7 +468,7 @@ Initially will assume over-damped Brownian oscillator spectral density for low e
 oscillator spectral density for discrete high energy modes.
 '''
 def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0):
-    time = np.linspace(0, 0.5, 2005)
+    time = np.linspace(0, 3., 2005)
     num_sites = site_hamiltonian.shape[0]
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors

@@ -13,7 +13,7 @@ import quant_mech.utils as utils
 import quant_mech.open_systems as os
 
 e1 = 1000.
-delta_E_values = np.logspace(0,3.,10) # wavenumbers
+delta_E_values = np.logspace(0,3.,100) # wavenumbers
 coupling_values = np.array([20., 50., 100., 500.]) # wavenumbers
 
 def hamiltonian(delta_E, V):
@@ -28,7 +28,7 @@ temperature = 300.
 Code to calculate rates for various coupling strengths and energy gaps between the monomers in a dimer, then saves data to file for plotting
 '''
 rates_data = []
-    
+     
 for i,V in enumerate(coupling_values):
     print 'calculating rates for coupling ' + str(V)
     rates = []
@@ -41,9 +41,10 @@ for i,V in enumerate(coupling_values):
     plt.ylabel(r'rate')
     plt.ylim(0.01, 100)
     plt.legend()
-      
+       
 np.savez('../../data/modified_redfield_test_simps_data.npz', rates=rates_data, delta_E_values=delta_E_values, coupling_values=coupling_values, \
                                                         reorg_energy=reorg_energy, cutoff_freq=cutoff_freq, temperature=temperature)
+plt.show()
 
 '''
 Code to write/read integrand data from text files, then integrate to find rates and plot rates vs energy gap
