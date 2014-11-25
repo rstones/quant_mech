@@ -527,24 +527,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 mixing_function[i,j] = modified_redfield_mixing_function(mixing_line_broadening_functions[start_index], mixing_reorg_energies[start_index], time)
                 start_index += 1
     
-#     lbfs = mixing_line_broadening_functions[0]
-#     
-#     print "exciton overlaps: "
-#     for n in range(num_sites):
-#         print exciton_overlap_at_site(np.array([evecs[1], evecs[0]]), n) * exciton_overlap_at_site(np.array([evecs[1], evecs[1]]), n)
-#     
-#     import matplotlib.pyplot as plt
-#     for i,v in enumerate(lbfs):
-#         plt.plot(time, np.real(np.exp(-v)), label=i)
-#         plt.plot(time, np.imag(np.exp(-v)), ls='--', label=i)
-#     #plt.plot(time[:-5], mixing_function[0,1], label='mix')
-#     plt.ylim(-3,3)
-#     plt.legend()
-#     plt.show()
-    
-    #return np.real(np.array([abs_lineshapes[0][i]*fl_lineshapes[1][i]*mixing_function[1,0][i] for i in range(time.size)])), time
-    #return mixing_line_broadening_functions[0], time
-    
+    # return integrand and time arrays before integrating to check integrand decays within time interval
     #return np.array([abs_lineshapes[0][:-5][i] * fl_lineshapes[1][:-5].conj()[i] * mixing_function[0,1][i] for i,t in enumerate(time[:-5])]), time[:-5]
     
     # put everything together to calculate modified Redfield rates between all excitons
@@ -554,5 +537,5 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
+    return rates
 

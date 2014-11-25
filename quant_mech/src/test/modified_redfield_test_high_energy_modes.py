@@ -75,10 +75,33 @@ mode_damping = 3.
 
 rates = []
 
+# time, integrand = os.modified_redfield_relaxation_rates(hamiltonian(100., coupling_values[0]), np.array([reorg_energy, reorg_energy]), cutoff_freq, \
+#                                                         PSII_mode_params(mode_damping), temperature, 20)
+# 
+# print time.shape
+# print integrand.shape
+# plt.plot(np.real(integrand), time)
+# plt.show()
+                                                        
+# x = np.linspace(0,100,100)
+# y = x**2
+# print x.shape
+# print y.shape
+# plt.plot(x,y)
+# plt.show()
+
+
+print 'Calculating rates with high energy modes....'
 for i,delta_E in enumerate(delta_E_values):
     rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, coupling_values[0]), np.array([reorg_energy, reorg_energy]), cutoff_freq, \
-                                                       PSII_mode_params(mode_damping), temperature, 20)[0,1])
-
+                                                       PSII_mode_params(mode_damping), temperature, 10)[0,1])
+   
 np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, rates=rates)
-plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))
+plt.plot(delta_E_values, -utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))
 plt.show()
+
+# data = np.load('../../data/modified_redfield_test_high_energy_modes_data.npz')
+# rates = data['rates']
+# delta_E_values = data['delta_E_values']
+# plt.plot(delta_E_values, -utils.WAVENUMS_TO_INVERSE_PS* rates)
+# plt.show()
