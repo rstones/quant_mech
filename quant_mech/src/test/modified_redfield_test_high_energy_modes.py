@@ -8,6 +8,7 @@ Transfer in Photosynthetic Light-Harvesting by Novoderezhkin and van Grondelle (
 '''
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.integrate as integrate
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
 
@@ -77,33 +78,34 @@ reorg_energy = 37. # wavenumbers
 cutoff_freq = 30.
 mode_damping = 3.
 
-rates_data = []
+abs_lineshape, fl_lineshape, mixing_function, time = os.modified_redfield_relaxation_rates(hamiltonian(0,255.), np.array([reorg_energy, reorg_energy]), cutoff_freq, LHCII_mode_params(mode_damping), temperature, 10, 6.)
+#plt.plot(time, abs_lineshape, label='abs')
+#plt.plot(time, fl_lineshape, label='fl')
+#plt.plot(time, mixing_function)
+plt.plot(time, abs_lineshape*fl_lineshape*mixing_function)
+#print 2.*np.real(integrate.simps(abs_lineshape*fl_lineshape*mixing_function, time))
+#plt.legend()
+plt.show()
 
-# time, integrand = os.modified_redfield_relaxation_rates(hamiltonian(100., coupling_values[0]), np.array([reorg_energy, reorg_energy]), cutoff_freq, \
-#                                                         LHCII_mode_params(mode_damping), temperature, 20)
+# for ti in np.arange(0.1,2.0,0.1):
+#     abs_lineshape, fl_lineshape, mixing_function, time = os.modified_redfield_relaxation_rates(hamiltonian(0,255.), np.array([reorg_energy, reorg_energy]), cutoff_freq, LHCII_mode_params(mode_damping), temperature, 10, ti)
+#     print 2.*np.real(integrate.simps(abs_lineshape*fl_lineshape*mixing_function, time))
+
+
+
+# rates_data = []
 # 
-# print time.shape
-# print integrand.shape
-# plt.plot(np.real(integrand), time)
-# plt.show()
-                                                        
-# x = np.linspace(0,100,100)
-# y = x**2
-# print x.shape
-# print y.shape
-# plt.plot(x,y)
-# plt.show()
-
-
-print 'Calculating rates with high energy modes....'
-for V in coupling_values:
-    rates = []
-    for i,delta_E in enumerate(delta_E_values):
-        rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, \
-                                                           LHCII_mode_params(mode_damping), temperature, 10)[0,1])
-    rates_data.append(rates)
-   
-np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
+# print 'Calculating rates with high energy modes....'
+# for V in coupling_values:
+#     rates = []
+#     for i,delta_E in enumerate(delta_E_values):
+#         MRT = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, \
+#                                                            LHCII_mode_params(mode_damping), temperature, 10)
+#         print MRT
+#         rates.append(MRT[0,1])
+#     rates_data.append(rates)
+#    
+# np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
 # plt.plot(delta_E_values, -utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))
 # plt.show()
 

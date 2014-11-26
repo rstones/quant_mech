@@ -467,8 +467,8 @@ Calculates exciton population transfer rates using modified Redfield theory
 Initially will assume over-damped Brownian oscillator spectral density for low energy phonons and under-damped Brownian
 oscillator spectral density for discrete high energy modes.
 '''
-def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0):
-    time = np.linspace(0, 3., 2005)
+def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0, time_interval=0.5):
+    time = np.linspace(0, time_interval, 8005)
     num_sites = site_hamiltonian.shape[0]
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
@@ -528,7 +528,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 start_index += 1
     
     # return integrand and time arrays before integrating to check integrand decays within time interval
-    #return np.array([abs_lineshapes[0][:-5][i] * fl_lineshapes[1][:-5].conj()[i] * mixing_function[0,1][i] for i,t in enumerate(time[:-5])]), time[:-5]
+    return abs_lineshapes[0][:-5], fl_lineshapes[1][:-5].conj(), mixing_function[0,1], time[:-5]
     
     # put everything together to calculate modified Redfield rates between all excitons
     rates = np.zeros((num_sites, num_sites))
