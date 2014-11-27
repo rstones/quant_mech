@@ -539,3 +539,55 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
  
     return rates
 
+# site line broadening function, check against other function
+def site_lbf_ed(time, coeffs):
+    return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
+
+# first differential of site line broadening function, check against numerical differentiation
+def site_lbf_dot_ed(time, coeffs):
+    return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
+
+# second differential of site line broadening function, check against numerical differentiation
+def site_lbf_dot_dot_ed(time, coeffs):
+    return np.array([np.sum([coeff[0] * np.exp(-coeff[1]*t) for coeff in coeffs]) for t in time], dtype='complex')
+
+'''
+Calculation of modified Redfield theory rates in same way as Ed has done in Mathematica for simple case of no structured environment and identical 
+spectral density for each site.
+'''
+def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, num_expansion_terms=0, time_interval=0.5):
+    time = np.linspace(0,time_interval, 2000)
+    evals, evecs = utils.sorted_eig(site_hamiltonian)
+    
+    coeffs = lbf_coeffs(site_reorg_energy, cutoff_freq, temperature, None, num_expansion_terms)
+    g_site = site_lbf_ed(time, coeffs)
+    g_site_dot = site_lbf_dot_ed(time, coeffs)
+    g_site_dot_dot = site_lbf_dot_dot_ed(time, coeffs)
+    
+    system_dim = site_hamiltonian.shape[0]
+    print system_dim
+    rates = np.zeros((system_dim, system_dim))
+    
+    # excitons are labelled from lowest in energy to highest
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if i != j:
+                # get energy gap
+                omega_ij = evals[i] - evals[j]
+                # calculate overlaps (c_alpha and c_beta's)
+                c_alphas = evecs[i]
+                c_betas = evecs[j]
+                # calculate integrand                
+                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*site_reorg_energy*t + g_site[k])) * 
+                                      np.exp(2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*site_reorg_energy*t)) *
+                                      ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
+                                       ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*site_reorg_energy)**2) for k,t in enumerate(time)])
+                print integrand.shape
+                print time.shape
+                print i
+                print j
+                # perform integration
+                rates[i,j] = 2.* int.simps(np.real(integrand), time)
+
+    return rates
+
