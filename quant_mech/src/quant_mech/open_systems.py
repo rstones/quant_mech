@@ -556,7 +556,7 @@ Calculation of modified Redfield theory rates in same way as Ed has done in Math
 spectral density for each site.
 '''
 def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0,time_interval, 2000)
+    time = np.linspace(0,time_interval, 1000)
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
     coeffs = lbf_coeffs(site_reorg_energy, cutoff_freq, temperature, None, num_expansion_terms)
@@ -565,15 +565,16 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, n
     g_site_dot_dot = site_lbf_dot_dot_ed(time, coeffs)
     
     system_dim = site_hamiltonian.shape[0]
-    print system_dim
     rates = np.zeros((system_dim, system_dim))
-    
+    integrands = []
     # excitons are labelled from lowest in energy to highest
     for i in range(system_dim):
         for j in range(system_dim):
             if i != j:
                 # get energy gap
-                omega_ij = evals[i] - evals[j]
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_i - E_j if E_i > E_j else E_j - E_i
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = evecs[i]
                 c_betas = evecs[j]
@@ -582,12 +583,9 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, n
                                       np.exp(2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*site_reorg_energy*t)) *
                                       ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
                                        ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*site_reorg_energy)**2) for k,t in enumerate(time)])
-                print integrand.shape
-                print time.shape
-                print i
-                print j
+                integrands.append(integrand)
                 # perform integration
                 rates[i,j] = 2.* int.simps(np.real(integrand), time)
 
-    return rates
+    return rates#, integrands, time
 
