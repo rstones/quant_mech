@@ -14,7 +14,7 @@ import quant_mech.open_systems as os
 
 e1 = 1000.
 delta_E_values = np.logspace(0,3.,100) # wavenumbers
-coupling_values = np.array([20.])#, 50., 100., 500.]) # wavenumbers
+coupling_values = np.array([20., 50., 100., 500.]) # wavenumbers
 
 def hamiltonian(delta_E, V):
     return np.array([[delta_E/2., V],

@@ -356,17 +356,6 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
     lbf2 = utils.differentiate_function(lbfs[2], time)[:-5]
     lbf3 = line_broadening_functions[3][:-5]
     
-#     import matplotlib.pyplot as plt
-# #     plt.plot(time[:-5], lbf0, label='0')
-# #     plt.plot(time[:-5], lbf1, label='1')
-# #     plt.plot(time[:-5], lbf2, label='2')
-# #     plt.plot(time[:-5], lbf3, label='3')
-# #     plt.legend()
-#     f = np.array([np.exp(2.*(lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
-#     plt.plot(time[:-5], np.real(f), label='real')
-#     plt.plot(time[:-5], np.imag(f), label='imag')
-#     plt.show()
-    
     return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] + 2.*1.j*reorg_energies[0]) ** 2) * np.exp(2. * (lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
 
 '''
@@ -537,7 +526,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates, abs_lineshapes, fl_lineshapes, mixing_function, time
+    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
