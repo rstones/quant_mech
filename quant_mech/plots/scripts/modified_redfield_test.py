@@ -23,8 +23,8 @@ for i,V in enumerate(coupling_values):
     plt.loglog(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*rates[i], label='V = ' + str(V), linewidth=2)
     
     # plot extracted data from Ed's thesis
-    xdata, ydata = np.loadtxt('../../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
-    plt.loglog(xdata, ydata, color='red')
+#     xdata, ydata = np.loadtxt('../../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
+#     plt.loglog(xdata, ydata, color='red')
     #s = interp.UnivariateSpline(xdata, ydata, k=2, s=None)
     #plt.loglog(xdata, s(xdata), color='red')
 

@@ -14,7 +14,7 @@ import quant_mech.open_systems as os
 
 e1 = 1000.
 delta_E_values = np.logspace(0,3.,100) # wavenumbers
-coupling_values = np.array([20., 50., 100., 500.]) # wavenumbers
+coupling_values = np.array([20.])#, 50., 100., 500.]) # wavenumbers
 
 def hamiltonian(delta_E, V):
     return np.array([[delta_E/2., V],
@@ -42,8 +42,8 @@ for i,V in enumerate(coupling_values):
     plt.ylim(0.01, 100)
     plt.legend()
        
-np.savez('../../data/modified_redfield_test_simps_data.npz', rates=rates_data, delta_E_values=delta_E_values, coupling_values=coupling_values, \
-                                                        reorg_energy=reorg_energy, cutoff_freq=cutoff_freq, temperature=temperature)
+# np.savez('../../data/modified_redfield_test_simps_data.npz', rates=rates_data, delta_E_values=delta_E_values, coupling_values=coupling_values, \
+#                                                         reorg_energy=reorg_energy, cutoff_freq=cutoff_freq, temperature=temperature)
 plt.show()
 
 '''

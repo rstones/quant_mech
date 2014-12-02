@@ -528,7 +528,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
                 start_index += 1
     
     # return integrand and time arrays before integrating to check integrand decays within time interval
-    return abs_lineshapes[0][:-5], fl_lineshapes[1][:-5].conj(), mixing_function[0,1], time[:-5]
+    #return abs_lineshapes, fl_lineshapes, mixing_function, time
     
     # put everything together to calculate modified Redfield rates between all excitons
     rates = np.zeros((num_sites, num_sites))
@@ -537,7 +537,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates
+    return rates, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
