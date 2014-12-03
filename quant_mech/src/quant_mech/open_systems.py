@@ -526,7 +526,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
+    return rates, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
