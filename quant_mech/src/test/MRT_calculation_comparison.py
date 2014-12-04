@@ -74,12 +74,13 @@ for i, delta_E in enumerate(delta_E_values):
 #     exciton1_lbf = np.sum(evecs[1]**4) * site_lbf
 #     exciton1_reorg_energy = np.sum(evecs[1]**4) * reorg_energy
 #     abs_fl_integral1.append(integrate.simps(os.absorption_line_shape(time, evals[0], exciton0_lbf) * os.fluorescence_line_shape(time, evals[1], exciton1_reorg_energy, exciton1_lbf).conj(), time))
-    abs_lineshapes, fl_lineshapes, time2 = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0, 0.5)
+    rates, abs_lineshapes, fl_lineshapes, mixing_function, time2 = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0, 0.5)
     abs_fl_integral1.append(integrate.simps(abs_lineshapes[0]*fl_lineshapes[1].conj(), time2))
     abs_fl_integral2.append(integrate.simps(new_abs_fl(time, evals[1]-evals[0], evecs[0], evecs[1], reorg_energy, site_lbf), time))
     
-plt.plot(delta_E_values, abs_fl_integral1, label='1')
-plt.plot(delta_E_values, abs_fl_integral2, label='2', linewidth=2, ls='--', color='red')
+# plt.plot(delta_E_values, abs_fl_integral1, label='1')
+# plt.plot(delta_E_values, abs_fl_integral2, label='2', linewidth=2, ls='--', color='red')
+plt.plot(delta_E_values, np.abs(np.array(abs_fl_integral1) - np.array(abs_fl_integral2)))
 plt.legend()
 plt.show()
 '''
@@ -89,22 +90,26 @@ def new_mixing_function(time, c_alphas, c_betas, site_reorg_energy, g_site, g_si
     return np.array([np.exp(2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*site_reorg_energy*t)) *
                     ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
                     ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*site_reorg_energy)**2) for k,t in enumerate(time)])
-'''
+
 mixing_integral1 = []
 mixing_integral2 = []
 for i,delta_E in enumerate(delta_E_values):
     evals, evecs = utils.sorted_eig(hamiltonian(delta_E, 20.))
-    abs_lineshapes, fl_lineshapes, mixing_function, time2 = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0, 0.5)
-    mixing_integral1.append(integrate.simps(mixing_function[0,1], time2[:-5]))
-    mixing_integral2.append(integrate.simps(new_mixing_function(time, evecs[0], evecs[1], reorg_energy, site_lbf, site_lbf_dot, site_lbf_dot_dot)))
-# plt.plot(delta_E_values, mixing_integral1, label='1')
-# plt.plot(delta_E_values, mixing_integral2, label='2', linewidth=2, ls='--', color='red')
-# plt.legend()
-plt.plot(delta_E_values, [np.abs(mixing_integral1[i] - mixing_integral2[i]) for i in range(len(mixing_integral1))])
+    rates, abs_lineshapes, fl_lineshapes, mixing_function, time2 = os.modified_redfield_relaxation_rates(hamiltonian(delta_E, 20.), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0, 0.5)
+#     mixing_integral1.append(integrate.simps(mixing_function[0,1], time2[:-5]))
+#     mixing_integral2.append(integrate.simps(new_mixing_function(time, evecs[0], evecs[1], reorg_energy, site_lbf, site_lbf_dot, site_lbf_dot_dot)))
+    mixing_integral1.append(mixing_function[0,1])
+    mixing_integral2.append(new_mixing_function(time, evecs[0], evecs[1], reorg_energy, site_lbf, site_lbf_dot, site_lbf_dot_dot))
+
+plt.plot(delta_E_values, mixing_integral1[0], label='1')
+plt.plot(delta_E_values, mixing_integral2[0], label='2', linewidth=2, ls='--', color='red')
+plt.legend()
+#plt.plot(delta_E_values, [np.abs(mixing_integral1[i] - mixing_integral2[i]) for i in range(len(mixing_integral1))])
 plt.show()
-'''
+
     
 # comparison of full rate calculations
+'''
 rates1 = []
 rates2 = []
 rates3 = []
@@ -120,5 +125,5 @@ plt.loglog(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates2), label=
 plt.loglog(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates3), label='3')
 plt.legend()
 plt.show()
-
+'''
 

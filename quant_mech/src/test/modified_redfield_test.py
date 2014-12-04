@@ -14,7 +14,7 @@ import quant_mech.open_systems as os
 
 e1 = 1000.
 delta_E_values = np.logspace(0,3.,100) # wavenumbers
-coupling_values = np.array([20., 50., 100., 500.]) # wavenumbers
+coupling_values = np.array([20., 100., 500.]) # wavenumbers
 
 def hamiltonian(delta_E, V):
     return np.array([[delta_E/2., V],
@@ -33,7 +33,7 @@ for i,V in enumerate(coupling_values):
     print 'calculating rates for coupling ' + str(V)
     rates = []
     for delta_E in delta_E_values:
-        rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 20)[0,1])
+        rates.append(os.modified_redfield_relaxation_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, None, temperature, 0)[0,1])
     plt.subplot(1, coupling_values.size, i+1)
     rates_data.append(rates)
     plt.loglog(delta_E_values, np.array(rates)*utils.WAVENUMS_TO_INVERSE_PS, label=V)

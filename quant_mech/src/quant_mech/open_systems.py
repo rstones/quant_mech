@@ -504,8 +504,8 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     abs_lineshapes = np.empty((num_sites, time.size), dtype='complex')
     fl_lineshapes = np.empty((num_sites, time.size), dtype='complex')
     for i in range(num_sites):
-        abs_lineshapes[i] = absorption_line_shape(time, evals[i], exciton_lbfs[i])
-        fl_lineshapes[i] = fluorescence_line_shape(time, evals[i], exciton_reorg_energies[i], exciton_lbfs[i])
+        abs_lineshapes[i] = absorption_line_shape(time, evals[i]+exciton_reorg_energies[i], exciton_lbfs[i])
+        fl_lineshapes[i] = fluorescence_line_shape(time, evals[i]+exciton_reorg_energies[i], exciton_reorg_energies[i], exciton_lbfs[i])
     
     # calculate N function for each pair of excitons
     mixing_function = np.empty((num_sites, num_sites, time.size-5), dtype='complex')
