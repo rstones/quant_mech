@@ -78,31 +78,20 @@ reorg_energy = 37. # wavenumbers
 cutoff_freq = 30.
 mode_damping = 3.
 
-#abs_lineshape, fl_lineshape, mixing_function, time = os.modified_redfield_relaxation_rates(hamiltonian(0,255.), np.array([reorg_energy, reorg_energy]), cutoff_freq, LHCII_mode_params(mode_damping), temperature, 10, 6.)
-#plt.plot(time, abs_lineshape, label='abs')
-#plt.plot(time, fl_lineshape, label='fl')
-#plt.plot(time, mixing_function)
-#plt.plot(time, abs_lineshape*fl_lineshape*mixing_function)
-#print 2.*np.real(integrate.simps(abs_lineshape*fl_lineshape*mixing_function, time))
-#plt.legend()
-#plt.show()
-
-# for ti in np.arange(0.1,2.0,0.1):
-#     abs_lineshape, fl_lineshape, mixing_function, time = os.modified_redfield_relaxation_rates(hamiltonian(0,255.), np.array([reorg_energy, reorg_energy]), cutoff_freq, LHCII_mode_params(mode_damping), temperature, 10, ti)
-#     print 2.*np.real(integrate.simps(abs_lineshape*fl_lineshape*mixing_function, time))
-
-
+# rates, integrands, time = os.MRT_rate_ed(hamiltonian(10., 255.), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 40.)
+# plt.plot(time, integrands[0,1])
+# plt.show()
 
 rates_data = []
- 
+   
 print 'Calculating rates with high energy modes....'
 for V in coupling_values[:1]:
     rates = []
     for i,delta_E in enumerate(delta_E_values):
-        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 10, 2.)
+        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 10.)
         rates.append(MRT[0,1])
     rates_data.append(rates)
-    
+      
 #np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
 plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates_data[0]))
 plt.show()

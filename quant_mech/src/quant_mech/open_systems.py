@@ -12,7 +12,7 @@ Module containing methods for numerical study of open quantum systems.
 '''
 import numpy as np
 import numpy.fft as fft
-import scipy.integrate as int
+import scipy.integrate as integrate
 import quant_mech.utils as utils
 
 # Function to construct Liouvillian super operator
@@ -373,11 +373,11 @@ def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function
                 break
         return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
      
-    return 2. * int.quad(integrand, 0, time[-1])[0]
+    return 2. * integrate.quad(integrand, 0, time[-1])[0]
 
 def modified_redfield_integration_simps(abs_line_shape, fl_line_shape, mixing_function, time):
     integrand = abs_line_shape * fl_line_shape * mixing_function
-    return 2. * int.simps(np.real(integrand), time)
+    return 2. * integrate.simps(np.real(integrand), time)
 
 def modified_redfield_integration_trapz(abs_line_shape, fl_line_shape, mixing_function, time):
     return 2. * np.trapz(np.real(abs_line_shape * fl_line_shape * mixing_function), time)
@@ -448,7 +448,7 @@ def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mix
             w_diff = w1 - w2
             mix_grid[i,j] = mix_freq[np.abs(freq_interval-w_diff).argmin()] # this indexes mix_freq at index of element of freq nearest to w_diff  
 
-    return 1./(np.pi**2) * int.simps(int.simps(fl_grid * abs_grid * mix_grid))
+    return 1./(np.pi**2) * integrate.simps(int.simps(fl_grid * abs_grid * mix_grid))
 
 '''
 Calculates exciton population transfer rates using modified Redfield theory
@@ -457,7 +457,7 @@ Initially will assume over-damped Brownian oscillator spectral density for low e
 oscillator spectral density for discrete high energy modes.
 '''
 def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0, time_interval, 8005)
+    time = np.linspace(0, time_interval, 16005)
     num_sites = site_hamiltonian.shape[0]
     
     # diagonalise site Hamiltonian to get exciton energies and eigenvectors
@@ -526,7 +526,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
             if i != j:
                 rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
  
-    return rates, abs_lineshapes, fl_lineshapes, mixing_function, time
+    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
@@ -545,7 +545,7 @@ Calculation of modified Redfield theory rates in same way as Ed has done in Math
 spectral density for each site.
 '''
 def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0,time_interval, 1000)
+    time = np.linspace(0,time_interval, int(time_interval*4000.))
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
     coeffs = lbf_coeffs(site_reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms)
@@ -558,6 +558,7 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, h
     
     system_dim = site_hamiltonian.shape[0]
     rates = np.zeros((system_dim, system_dim))
+    integrands = np.zeros((system_dim, system_dim, time.size), dtype='complex')
     
     # excitons are labelled from lowest in energy to highest
     for i in range(system_dim):
@@ -571,12 +572,13 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, h
                 c_alphas = evecs[i]
                 c_betas = evecs[j]
                 # calculate integrand                
-                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*site_reorg_energy*t + g_site[k])) * 
-                                      np.exp(2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*site_reorg_energy*t)) *
+                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*site_reorg_energy*t + g_site[k]) + 
+                                      2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*site_reorg_energy*t)) *
                                       ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
                                        ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*site_reorg_energy)**2) for k,t in enumerate(time)])
                 # perform integration
-                rates[i,j] = 2.* int.simps(np.real(integrand), time)
+                rates[i,j] = 2.* integrate.simps(np.real(integrand), time)
+                integrands[i,j] = integrand
 
-    return rates
+    return rates, integrands, time
 
