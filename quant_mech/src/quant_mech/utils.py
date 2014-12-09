@@ -163,7 +163,7 @@ def sorted_eig(M):
             if v == i:
                 evecs_sorted.append(evecs.T[j])
                 break
-    return evals_sorted, np.array(evecs_sorted, dtype='complex')
+    return np.array(evals_sorted), np.array(evecs_sorted, dtype='complex')
 
 '''
 Returns Hamiltonian for a quantum harmonic oscillator

@@ -36,7 +36,8 @@ for i,V in enumerate(coupling_values):
     print 'calculating rates for coupling ' + str(V)
     rates = []
     for delta_E in delta_E_values:
-        rates.append(os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, None, 0, 4.0)[0,1])
+        #reorg_energy
+        rates.append(os.MRT_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, temperature, None, 0, 1.)[0,1])
     plt.subplot(1, coupling_values.size, i+1)
     rates_data.append(rates)
     plt.loglog(delta_E_values, np.array(rates)*utils.WAVENUMS_TO_INVERSE_PS, label=V)
@@ -53,6 +54,6 @@ for i,V in enumerate(coupling_values):
     plt.xlim(5,1000)
     plt.legend()
        
-np.savez('../../data/modified_redfield_test_ed_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
+#np.savez('../../data/modified_redfield_test_ed_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
         
 plt.show()    

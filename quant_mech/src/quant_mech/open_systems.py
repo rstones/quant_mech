@@ -545,7 +545,7 @@ Calculation of modified Redfield theory rates in same way as Ed has done in Math
 spectral density for each site.
 '''
 def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0,time_interval, int(time_interval*4000.))
+    time = np.linspace(0,time_interval, int(time_interval*2000.))
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
     coeffs = lbf_coeffs(site_reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms)
@@ -580,5 +580,47 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, h
                 rates[i,j] = 2.* integrate.simps(np.real(integrand), time)
                 integrands[i,j] = integrand
 
-    return rates, integrands, time
+    return rates#, integrands, time
+
+'''
+Calculates modified Redfield rates with different site reorganisation energies of the underdamped Brownian oscillator at each site
+but with identical cutoff frequencies and high energy mode parameters
+'''
+def MRT_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms=0, time_interval=0.5):
+    time = np.linspace(0,time_interval, int(time_interval*2000.))
+    evals, evecs = utils.sorted_eig(site_hamiltonian)
+    system_dim = site_hamiltonian.shape[0]
+    
+    coeffs = np.array([lbf_coeffs(site_reorg_energies[i], cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms) for i in range(system_dim)])
+    g_site = np.array([site_lbf_ed(time, coeffs[i]) for i in range(system_dim)])
+    g_site_dot = np.array([site_lbf_dot_ed(time, coeffs[i]) for i in range(system_dim)])
+    g_site_dot_dot = np.array([site_lbf_dot_dot_ed(time, coeffs[i]) for i in range(system_dim)])
+    
+    if high_energy_mode_params is not None and high_energy_mode_params.any():
+        site_reorg_energies += np.sum([mode[0]*mode[1] for mode in high_energy_mode_params])
+    
+    rates = np.zeros((system_dim, system_dim))
+    integrands = np.zeros((system_dim, system_dim, time.size), dtype='complex')
+    
+    # excitons are labelled from lowest in energy to highest
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if i != j:
+                # get energy gap
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_i - E_j if E_i > E_j else E_j - E_i
+                # calculate overlaps (c_alpha and c_beta's)
+                c_alphas = evecs[i]
+                c_betas = evecs[j]
+                # calculate integrand
+                integrand = np.array([np.exp(1.j*omega_ij*t - np.sum((c_alphas**4 + c_betas**4)*(1.j*site_reorg_energies*t + g_site.T[k])) + 
+                                      2. * np.sum((c_alphas**2 * c_betas**2) * (g_site.T[k] + 1.j*site_reorg_energies*t))) *
+                                      (np.sum(c_alphas**2 * c_betas**2 * g_site_dot_dot.T[k]) - 
+                                       (np.sum((c_alphas * c_betas**3 - c_alphas**3 * c_betas)*g_site_dot.T[k]) + 2.j*np.sum(c_betas**3 * c_alphas * site_reorg_energies))**2) for k,t in enumerate(time)])
+                # perform integration
+                rates[i,j] = 2.* integrate.simps(np.real(integrand), time)
+                integrands[i,j] = integrand
+
+    return rates#, integrands, time
 

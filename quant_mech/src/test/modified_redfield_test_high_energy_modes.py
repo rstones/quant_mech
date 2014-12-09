@@ -71,7 +71,7 @@ def LHCII_mode_params(damping):
                          (1645.,0.00363,damping),
                          (1673.,0.00097,damping)])
         
-delta_E_values = np.linspace(0,2000,100) # wavenumbers
+delta_E_values = np.linspace(0,2000,40) # wavenumbers
 coupling_values = np.array([225., 100., 55.]) # wavenumbers
 temperature = 77. # Kelvin
 reorg_energy = 37. # wavenumbers
@@ -88,7 +88,7 @@ print 'Calculating rates with high energy modes....'
 for V in coupling_values[:1]:
     rates = []
     for i,delta_E in enumerate(delta_E_values):
-        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 10.)
+        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 10, 10.)
         rates.append(MRT[0,1])
     rates_data.append(rates)
       
