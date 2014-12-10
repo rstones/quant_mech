@@ -583,6 +583,52 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, h
     return rates#, integrands, time
 
 '''
+Calculates modified Redfield rates for PE545 complex which requires inclusion of 2 over-damped Brownian oscillator spectral densities
+'''
+def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reorg_energy2, cutoff_freq2, temperature, high_energy_mode_params, num_expansion_terms=0, time_interval=0.5):
+    time = np.linspace(0,time_interval, int(time_interval*32000.))
+    evals, evecs = utils.sorted_eig(site_hamiltonian)
+    
+    # correlation function coefficients for first over-damped oscillator and high energy modes
+    coeffs = lbf_coeffs(site_reorg_energy1, cutoff_freq1, temperature, high_energy_mode_params, num_expansion_terms)
+    # add correlation function coefficients for second over-damped oscillator
+    coeffs = np.concatenate((coeffs, lbf_coeffs(site_reorg_energy2, cutoff_freq2, temperature, None, num_expansion_terms)))
+    
+    g_site = site_lbf_ed(time, coeffs)
+    g_site_dot = site_lbf_dot_ed(time, coeffs)
+    g_site_dot_dot = site_lbf_dot_dot_ed(time, coeffs)
+    
+    total_site_reorg_energy = site_reorg_energy1 + site_reorg_energy2
+    if high_energy_mode_params is not None and high_energy_mode_params.any():
+        total_site_reorg_energy += np.sum([mode[0]*mode[1] for mode in high_energy_mode_params])
+    
+    system_dim = site_hamiltonian.shape[0]
+    rates = np.zeros((system_dim, system_dim))
+    integrands = np.zeros((system_dim, system_dim, time.size), dtype='complex')
+    
+    # excitons are labelled from lowest in energy to highest
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if i != j:
+                # get energy gap
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_i - E_j if E_i > E_j else E_j - E_i
+                # calculate overlaps (c_alpha and c_beta's)
+                c_alphas = evecs[i]
+                c_betas = evecs[j]
+                # calculate integrand                
+                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
+                                      2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
+                                      ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
+                                       ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
+                # perform integration
+                rates[i,j] = 2.* integrate.simps(np.real(integrand), time)
+                integrands[i,j] = integrand
+
+    return rates#, integrands, time
+
+'''
 Calculates modified Redfield rates with different site reorganisation energies of the underdamped Brownian oscillator at each site
 but with identical cutoff frequencies and high energy mode parameters
 '''

@@ -13,7 +13,7 @@ coupling_values = data['coupling_values']
 
 for i,V in enumerate(coupling_values):
     plt.subplot(1, coupling_values.size, i+1)
-    plt.plot(delta_E_values, -utils.WAVENUMS_TO_INVERSE_PS*rates[i], label='V = ' + str(V), linewidth=2)
+    plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*rates[i], label='V = ' + str(V), linewidth=2)
     
     # plot extracted data from Ed's thesis
 #     xdata, ydata = np.loadtxt('../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)

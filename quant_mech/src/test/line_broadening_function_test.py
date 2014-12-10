@@ -1,20 +1,17 @@
 '''
-Created on 21 Nov 2014
-
-Module to test modified Redfield code from open_systems module. Attempts to reproduce parts of figure 3 from Physical Origins and Models of Energy
-Transfer in Photosynthetic Light-Harvesting by Novoderezhkin and van Grondelle (2010)
+Created on 10 Dec 2014
 
 @author: rstones
 '''
 import numpy as np
-import matplotlib.pyplot as plt
-import scipy.integrate as integrate
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
+import matplotlib.pyplot as plt
 
-def hamiltonian(delta_E, V):
-    return np.array([[delta_E/2., V],
-                    [V, -delta_E/2.]])
+reorg_energy = 37.
+cutoff_freq = 30.
+temperature = 77.
+mode_damping = 3.
 
 '''
 Taken from Table 1 in Energy-Transfer Dynamics in the LHCII Complex of Higher Plants: Modified Redfield
@@ -71,34 +68,13 @@ def LHCII_mode_params(damping):
                          (1645.,0.00363,damping),
                          (1673.,0.00097,damping)])
         
-delta_E_values = np.linspace(0,2000,50) # wavenumbers
-coupling_values = np.array([225., 100., 55.]) # wavenumbers
-temperature = 77. # Kelvin
-reorg_energy = 37. # wavenumbers
-cutoff_freq = 30.
-mode_damping = 3.
 
-# rates, integrands, time = os.MRT_rate_ed(hamiltonian(10., 255.), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 40.)
-# plt.plot(time, integrands[0,1])
-# plt.show()
-
-rates_data = []
-   
-print 'Calculating rates with high energy modes....'
-for V in coupling_values[:1]:
-    print 'Calculating rates for coupling ' + str(V)
-    rates = []
-    for i,delta_E in enumerate(delta_E_values):
-        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 10.)
-        rates.append(MRT[0,1])
-    rates_data.append(rates)
-      
-#np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
-plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates_data[0]))
+time = np.linspace(0,0.1,1000)
+lbf_coeffs = os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20)
+lbf = os.site_lbf(time, lbf_coeffs)
+plt.plot(time, np.real(lbf), label=r'$\mathcal{R}$e g(t)')
+plt.plot(time, np.imag(lbf), label=r'$\mathcal{I}$m g(t)')
+plt.xlim(0,0.1)
+plt.legend()
 plt.show()
-
-# data = np.load('../../data/modified_redfield_test_high_energy_modes_data.npz')
-# rates = data['rates']
-# delta_E_values = data['delta_E_values']
-# plt.plot(delta_E_values, -utils.WAVENUMS_TO_INVERSE_PS* rates)
-# plt.show()
+        
