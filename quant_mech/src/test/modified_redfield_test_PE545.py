@@ -4,10 +4,13 @@ Created on 10 Dec 2014
 @author: rstones
 '''
 import numpy as np
+import numpy.random as rand
 import matplotlib.pyplot as plt
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
 import quant_mech.time_evolution as te
+
+rand.seed()
 
 # basis { PEB_50/61C, DBV_A, DVB_B, PEB_82C, PEB_158C, PEB_50/61D, PEB_82D, PEB_158D }
 site_energies = np.array([18532., 18008., 17973., 18040., 18711., 19574., 19050., 18960.])
@@ -46,7 +49,79 @@ def PE545_mode_params(damping):
                      (1790., 0.0072, damping),
                      (2090., 0.0113, damping)])
 
+# to include disorder....
+# generate distribution of energies for each site
+def standard_deviation(fwhm):
+    return fwhm / (2.*np.sqrt(2.*np.log(2.)))
 
+num_realisations = 100
+FWHM = 400.
+site_energy_samples = []
+for E in site_energies:
+    site_energy_samples.append(rand.normal(E, standard_deviation(FWHM), num_realisations))
+    
+# parameters for time evolution
+duration = 5.
+timestep = 0.01
+time = np.arange(0, duration+timestep, timestep)
+init_dv = np.array([0.35, 0.12, 0.1, 0.1, 0.34, 0.61, 0.46, 0.5]) # init state in site basis
+
+data_filename = '../../data/modified_redfield_test_PE545_disorder_data.npz'
+
+try:
+    data = np.load(data_filename)
+    print 'data file already exists, do you want to append to it?' 
+except:
+    pass
+
+# in each realisation pick the next value from the distribution for each site to construct the Hamiltonian
+for n in range(num_realisations):
+    print 'Calculating realisation number ' + str(n+1) + '....'
+    realisation_energies = np.zeros(site_energies.size)
+    for i in range(site_energies.size):
+        realisation_energies[i] = site_energy_samples[i][n]
+    hamiltonian = np.diag(realisation_energies) + couplings + couplings.T
+    
+    # calculate the rates and time evolution for the realisation
+    realisation_rates = os.MRT_rate_PE545(hamiltonian, reorg_energy1, cutoff_freq1, reorg_energy2, cutoff_freq2, temperature, PE545_mode_params(mode_damping), 10, 10)
+    liouvillian = np.zeros((realisation_rates.shape[0], realisation_rates.shape[1]))
+    for i,row in enumerate(realisation_rates.T):
+        liouvillian[i,i] = -np.sum(row)
+    liouvillian += realisation_rates
+    
+    evals, evecs = utils.sorted_eig(hamiltonian) # make sure to return excitons in basis going from lowest to highest energy with sorted_eig
+    evecs = evecs.T
+    init_dv = np.diag(np.dot(evecs.T, np.dot(np.diag(init_dv), evecs))) # convert init dv in site basis to exciton basis before time evolution calculation
+    dv_history = te.liouvillian_time_evolution(init_dv, liouvillian, duration, timestep)
+    
+    site_history = np.zeros((evals.shape[0], len(dv_history)))
+    for i,dv in enumerate(dv_history):
+        exciton_dm = np.diag(dv)
+        site_dm = np.dot(evecs, np.dot(exciton_dm, evecs.T))
+        site_history[:,i] = np.diag(site_dm)
+        
+    # add the time evolution for each site to the previous realisations    
+    try:
+        data = np.load(data_filename)
+        site_histories = data['site_histories']
+        site_histories[n,:,:] = site_history
+        np.savez(data_filename, site_histories=site_histories, time=time, num_realisations=n+1)
+    except IOError:
+        site_histories = np.zeros((num_realisations, site_energies.size, time.size))
+        if n == 0: # n should be zero here as it is the first run of the code so check
+            site_histories[n,:,:] = site_history
+            np.savez(data_filename, site_histories=site_histories, time=time, num_realisations=n+1)
+        else:
+            print 'n is not zero on first run of the code!'
+    
+
+# divide time evolution by number of realisations at the end
+# plot disorder averaged time evolution
+
+
+
+
+'''
 # calculate rates for PE545 (rates are returned in basis of excitons going lowest to highest in energy)
 rates = os.MRT_rate_PE545(site_hamiltonian, reorg_energy1, cutoff_freq1, reorg_energy2, cutoff_freq2, temperature, PE545_mode_params(mode_damping), 10, 10)
 
@@ -61,6 +136,7 @@ for row in liouvillian.T:
     print np.sum(row)
     
 print rates
+np.savez('../../data/modified_redfield_test_PE545_data.npz', rates=rates)
 
 # run time evolution for 5ps to try and reproduce plot in supplementary info
 duration = 5.
@@ -89,3 +165,4 @@ plt.show()
 # include disorder to get better reproduction of plot
 # so create new realisation of disorder in site energies, calculate rates and time evolution
 # average time evolution of each realisation to get final plot
+'''

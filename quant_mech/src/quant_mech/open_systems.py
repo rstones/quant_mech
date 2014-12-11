@@ -586,7 +586,7 @@ def MRT_rate_ed(site_hamiltonian, site_reorg_energy, cutoff_freq, temperature, h
 Calculates modified Redfield rates for PE545 complex which requires inclusion of 2 over-damped Brownian oscillator spectral densities
 '''
 def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reorg_energy2, cutoff_freq2, temperature, high_energy_mode_params, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0,time_interval, int(time_interval*32000.))
+    time = np.linspace(0,time_interval, int(time_interval*16000.))
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
     # correlation function coefficients for first over-damped oscillator and high energy modes
@@ -613,7 +613,7 @@ def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reor
                 # get energy gap
                 E_i = evals[i]
                 E_j = evals[j]
-                omega_ij = E_i - E_j if E_i > E_j else E_j - E_i
+                omega_ij = E_j - E_i #E_i - E_j if E_i > E_j else E_j - E_i
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = evecs[i]
                 c_betas = evecs[j]
