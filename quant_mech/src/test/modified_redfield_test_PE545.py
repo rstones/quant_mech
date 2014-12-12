@@ -54,7 +54,7 @@ def PE545_mode_params(damping):
 def standard_deviation(fwhm):
     return fwhm / (2.*np.sqrt(2.*np.log(2.)))
 
-num_realisations = 100
+num_realisations = 500
 FWHM = 400.
 site_energy_samples = []
 for E in site_energies:
@@ -66,13 +66,25 @@ timestep = 0.01
 time = np.arange(0, duration+timestep, timestep)
 init_dv = np.array([0.35, 0.12, 0.1, 0.1, 0.34, 0.61, 0.46, 0.5]) # init state in site basis
 
-data_filename = '../../data/modified_redfield_test_PE545_disorder_data.npz'
+data_filename = '../../data/modified_redfield_test_PE545_disorder_data2.npz'
+
 
 try:
     data = np.load(data_filename)
     print 'data file already exists, do you want to append to it?' 
 except:
     pass
+
+time_interval = 10
+integration_time = np.linspace(0, time_interval, time_interval*16000)
+num_expansion_terms = 10
+mode_params = PE545_mode_params(mode_damping)
+coeffs = os.lbf_coeffs(reorg_energy1, cutoff_freq1, temperature, mode_params, num_expansion_terms)
+coeffs = np.concatenate((coeffs, os.lbf_coeffs(reorg_energy2, cutoff_freq2, temperature, None, num_expansion_terms)))
+g_site = os.site_lbf_ed(integration_time, coeffs)
+g_site_dot = os.site_lbf_dot_ed(integration_time, coeffs)
+g_site_dot_dot = os.site_lbf_dot_dot_ed(integration_time, coeffs)
+total_site_reorg_energy = reorg_energy1 + reorg_energy2 + np.sum([mode[0]*mode[1] for mode in mode_params])
 
 # in each realisation pick the next value from the distribution for each site to construct the Hamiltonian
 for n in range(num_realisations):
@@ -83,7 +95,7 @@ for n in range(num_realisations):
     hamiltonian = np.diag(realisation_energies) + couplings + couplings.T
     
     # calculate the rates and time evolution for the realisation
-    realisation_rates = os.MRT_rate_PE545(hamiltonian, reorg_energy1, cutoff_freq1, reorg_energy2, cutoff_freq2, temperature, PE545_mode_params(mode_damping), 10, 10)
+    realisation_rates = os.MRT_rate_PE545_quick(hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, integration_time)
     liouvillian = np.zeros((realisation_rates.shape[0], realisation_rates.shape[1]))
     for i,row in enumerate(realisation_rates.T):
         liouvillian[i,i] = -np.sum(row)
