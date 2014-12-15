@@ -76,8 +76,8 @@ except:
     pass
 
 time_interval = 10
-integration_time = np.linspace(0, time_interval, time_interval*16000)
-num_expansion_terms = 10
+integration_time = np.linspace(0, time_interval, time_interval*4000) # time_interval*16000
+num_expansion_terms = 0 # 10
 mode_params = PE545_mode_params(mode_damping)
 coeffs = os.lbf_coeffs(reorg_energy1, cutoff_freq1, temperature, mode_params, num_expansion_terms)
 coeffs = np.concatenate((coeffs, os.lbf_coeffs(reorg_energy2, cutoff_freq2, temperature, None, num_expansion_terms)))
@@ -95,7 +95,7 @@ for n in range(num_realisations):
     hamiltonian = np.diag(realisation_energies) + couplings + couplings.T
     
     # calculate the rates and time evolution for the realisation
-    realisation_rates = os.MRT_rate_PE545_quick(hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, integration_time)
+    realisation_rates = os.MRT_rate_PE545_quick(hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, integration_time)
     liouvillian = np.zeros((realisation_rates.shape[0], realisation_rates.shape[1]))
     for i,row in enumerate(realisation_rates.T):
         liouvillian[i,i] = -np.sum(row)
@@ -106,23 +106,23 @@ for n in range(num_realisations):
     init_dv = np.diag(np.dot(evecs.T, np.dot(np.diag(init_dv), evecs))) # convert init dv in site basis to exciton basis before time evolution calculation
     dv_history = te.liouvillian_time_evolution(init_dv, liouvillian, duration, timestep)
     
-    site_history = np.zeros((evals.shape[0], len(dv_history)))
+    site_history = np.zeros((site_energies.size, time.size))
     for i,dv in enumerate(dv_history):
         exciton_dm = np.diag(dv)
         site_dm = np.dot(evecs, np.dot(exciton_dm, evecs.T))
         site_history[:,i] = np.diag(site_dm)
         
-    # add the time evolution for each site to the previous realisations    
+    # add the time evolution for each site to the previous realisations
     try:
         data = np.load(data_filename)
-        site_histories = data['site_histories']
-        site_histories[n,:,:] = site_history
-        np.savez(data_filename, site_histories=site_histories, time=time, num_realisations=n+1)
+        site_histories_sum = data['site_histories_sum']
+        site_histories_sum[:,:] += site_history
+        np.savez(data_filename, site_histories_sum=site_histories_sum, time=time, num_realisations=n+1)
     except IOError:
-        site_histories = np.zeros((num_realisations, site_energies.size, time.size))
+        site_histories_sum = np.zeros((site_energies.size, time.size))
         if n == 0: # n should be zero here as it is the first run of the code so check
-            site_histories[n,:,:] = site_history
-            np.savez(data_filename, site_histories=site_histories, time=time, num_realisations=n+1)
+            site_histories_sum[:,:] += site_history
+            np.savez(data_filename, site_histories_sum=site_histories_sum, time=time, num_realisations=n+1)
         else:
             print 'n is not zero on first run of the code!'
     

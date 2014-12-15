@@ -451,6 +451,46 @@ def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mix
     return 1./(np.pi**2) * integrate.simps(int.simps(fl_grid * abs_grid * mix_grid))
 
 '''
+Calculates line broadening function, its derivatives and total site reorganisation energy for modfied Redfield calculations
+'''
+def modified_redfield_params(time, reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms=0):
+    coeffs = lbf_coeffs(reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms)
+    total_site_reorg_energy = reorg_energy + np.sum([mode[0]*mode[1] for mode in mode_params])
+    return site_lbf_ed(time, coeffs), site_lbf_dot_ed(time, coeffs), site_lbf_dot_dot_ed(time, coeffs), total_site_reorg_energy
+
+'''
+Calculates modified Redfield rates
+'''
+def modified_redfield_rates(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
+    evals, evecs = utils.sorted_eig(site_hamiltonian)
+    
+    system_dim = site_hamiltonian.shape[0]
+    rates = np.zeros((system_dim, system_dim))
+    
+    # excitons are labelled from lowest in energy to highest
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if j > i: # should only loop over rates for downhill energy transfer
+                # get energy gap
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_j - E_i #E_i - E_j if E_i > E_j else E_j - E_i
+                # calculate overlaps (c_alpha and c_beta's)
+                c_alphas = evecs[i]
+                c_betas = evecs[j]
+                # calculate integrand                
+                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
+                                      2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
+                                      ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
+                                       ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
+                # perform integration
+                rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
+                # calculate uphill rate using detailed balance
+                rates[j,i] = np.exp(-omega_ij/(utils.KELVIN_TO_WAVENUMS*temperature)) * rates[i,j]
+
+    return rates
+
+'''
 Calculates exciton population transfer rates using modified Redfield theory
 
 Initially will assume over-damped Brownian oscillator spectral density for low energy phonons and under-damped Brownian
@@ -628,7 +668,7 @@ def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reor
 
     return rates#, integrands, time
 
-def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, time):
+def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
     #time = np.linspace(0,time_interval, int(time_interval*16000.))
     evals, evecs = utils.sorted_eig(site_hamiltonian)
     
@@ -651,7 +691,7 @@ def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, t
     # excitons are labelled from lowest in energy to highest
     for i in range(system_dim):
         for j in range(system_dim):
-            if i != j:
+            if j > i: # should only loop over rates for downhill energy transfer
                 # get energy gap
                 E_i = evals[i]
                 E_j = evals[j]
@@ -665,7 +705,9 @@ def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, t
                                       ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
                                        ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
                 # perform integration
-                rates[i,j] = 2.* integrate.simps(np.real(integrand), time)
+                rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
+                # calculate uphill rate using detailed balance
+                rates[j,i] = np.exp(-omega_ij/(utils.KELVIN_TO_WAVENUMS*temperature)) * rates[i,j]
 
     return rates
 
