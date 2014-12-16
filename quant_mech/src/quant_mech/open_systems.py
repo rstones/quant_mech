@@ -668,24 +668,8 @@ def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reor
 
     return rates#, integrands, time
 
-def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
-    #time = np.linspace(0,time_interval, int(time_interval*16000.))
-    evals, evecs = utils.sorted_eig(site_hamiltonian)
-    
-#     # correlation function coefficients for first over-damped oscillator and high energy modes
-#     coeffs = lbf_coeffs(site_reorg_energy1, cutoff_freq1, temperature, high_energy_mode_params, num_expansion_terms)
-#     # add correlation function coefficients for second over-damped oscillator
-#     coeffs = np.concatenate((coeffs, lbf_coeffs(site_reorg_energy2, cutoff_freq2, temperature, None, num_expansion_terms)))
-#     
-#     g_site = site_lbf_ed(time, coeffs)
-#     g_site_dot = site_lbf_dot_ed(time, coeffs)
-#     g_site_dot_dot = site_lbf_dot_dot_ed(time, coeffs)
-#     
-#     total_site_reorg_energy = site_reorg_energy1 + site_reorg_energy2
-#     if high_energy_mode_params is not None and high_energy_mode_params.any():
-#         total_site_reorg_energy += np.sum([mode[0]*mode[1] for mode in high_energy_mode_params])
-    
-    system_dim = site_hamiltonian.shape[0]
+def MRT_rate_PE545_quick(exciton_energies, eigenvectors, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):   
+    system_dim = exciton_energies.size
     rates = np.zeros((system_dim, system_dim))
     
     # excitons are labelled from lowest in energy to highest
@@ -693,12 +677,12 @@ def MRT_rate_PE545_quick(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, t
         for j in range(system_dim):
             if j > i: # should only loop over rates for downhill energy transfer
                 # get energy gap
-                E_i = evals[i]
-                E_j = evals[j]
+                E_i = exciton_energies[i]
+                E_j = exciton_energies[j]
                 omega_ij = E_j - E_i #E_i - E_j if E_i > E_j else E_j - E_i
                 # calculate overlaps (c_alpha and c_beta's)
-                c_alphas = evecs[i]
-                c_betas = evecs[j]
+                c_alphas = eigenvectors[i]
+                c_betas = eigenvectors[j]
                 # calculate integrand                
                 integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
                                       2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
@@ -753,3 +737,22 @@ def MRT_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, temperature, h
 
     return rates#, integrands, time
 
+###########################################################################
+#
+# Functions to calculate quantities related to Forster theory
+#
+###########################################################################
+
+'''
+State energies E1 and E2 should not include reorganisation shift (need to clarify whether reorganisation energy should be removed before or
+after diagonalisation of Hamiltonian)
+
+Whether state 1 or 2 refers to absorbing or fluorescing state depends on whether forward or backward rate is being calculated 
+'''
+def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2, lifetime1, lifetime2, state1, state2, hamiltonian, time):
+    integrand = np.array([np.exp(1.j*(E1-E2)*t - 1.j*(E_reorg1+E_reorg2)*t - line_broadening1[i] - line_broadening2[i] - t*(1./lifetime1 + 1./lifetime2)) for i,t in enumerate(time)])
+    return 2. * (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2) * integrate.simps(np.real(integrand))
+
+
+
+    
