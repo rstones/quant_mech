@@ -14,6 +14,7 @@ import numpy as np
 import numpy.fft as fft
 import scipy.integrate as integrate
 import quant_mech.utils as utils
+from datetime import datetime
 
 # Function to construct Liouvillian super operator
 # jump_operators should be list of tuples (first entry of tuple is lindblad operator, second is rate)
@@ -461,10 +462,8 @@ def modified_redfield_params(time, reorg_energy, cutoff_freq, temperature, mode_
 '''
 Calculates modified Redfield rates
 '''
-def modified_redfield_rates(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
-    evals, evecs = utils.sorted_eig(site_hamiltonian)
-    
-    system_dim = site_hamiltonian.shape[0]
+def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):    
+    system_dim = evals.size
     rates = np.zeros((system_dim, system_dim))
     
     # excitons are labelled from lowest in energy to highest
@@ -478,11 +477,14 @@ def modified_redfield_rates(site_hamiltonian, g_site, g_site_dot, g_site_dot_dot
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = evecs[i]
                 c_betas = evecs[j]
+                # calculate sums of combined eigenvector amplitudes 
+                A = np.sum(c_alphas**4) + np.sum(c_betas**4)
+                B = np.sum(c_alphas**2 * c_betas**2)
+                C = np.sum(c_alphas * c_betas**3)
+                D = np.sum(c_alphas**3 * c_betas)
                 # calculate integrand                
-                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
-                                      2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
-                                      ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
-                                       ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
+                integrand =  np.exp(1.j*omega_ij*time - (A - 2.*B) * (1.j*total_site_reorg_energy*time + g_site)) * \
+                                    (B*g_site_dot_dot - ((C - D)*g_site_dot + 2.j*C*total_site_reorg_energy)**2)
                 # perform integration
                 rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
                 # calculate uphill rate using detailed balance
@@ -571,7 +573,7 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
     return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
-
+    
 # first differential of site line broadening function, check against numerical differentiation
 def site_lbf_dot_ed(time, coeffs):
     return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
@@ -668,7 +670,7 @@ def MRT_rate_PE545(site_hamiltonian, site_reorg_energy1, cutoff_freq1, site_reor
 
     return rates#, integrands, time
 
-def MRT_rate_PE545_quick(exciton_energies, eigenvectors, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):   
+def MRT_rate_PE545_quick(exciton_energies, eigenvectors, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
     system_dim = exciton_energies.size
     rates = np.zeros((system_dim, system_dim))
     
@@ -683,11 +685,26 @@ def MRT_rate_PE545_quick(exciton_energies, eigenvectors, g_site, g_site_dot, g_s
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = eigenvectors[i]
                 c_betas = eigenvectors[j]
-                # calculate integrand                
-                integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
-                                      2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
-                                      ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
-                                       ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
+                # calculate sums of combined eigenvector amplitudes 
+                A = np.sum(c_alphas**4) + np.sum(c_betas**4)
+                B = np.sum(c_alphas**2 * c_betas**2)
+                C = np.sum(c_alphas * c_betas**3)
+                D = np.sum(c_alphas**3 * c_betas)
+                
+                # calculate integrand             
+#                 integrand = np.array([np.exp(1.j*omega_ij*t - (np.sum(c_alphas**4) + np.sum(c_betas**4))*(1.j*total_site_reorg_energy*t + g_site[k]) + 
+#                                       2. * np.sum(c_alphas**2 * c_betas**2) * (g_site[k] + 1.j*total_site_reorg_energy*t)) *
+#                                       ((np.sum(c_alphas**2 * c_betas**2)*g_site_dot_dot[k]) - 
+#                                        ((np.sum(c_alphas * c_betas**3) - np.sum(c_alphas**3 * c_betas))*g_site_dot[k] + 2.j*np.sum(c_betas**3 * c_alphas)*total_site_reorg_energy)**2) for k,t in enumerate(time)])
+
+#                 integrand = np.zeros(time.size, dtype='complex')
+#                 for k,t in enumerate(time):
+#                     integrand[k] =  np.exp(1.j*omega_ij*t - (A - 2.*B) * (1.j*total_site_reorg_energy*t + g_site[k])) * \
+#                                     (B*g_site_dot_dot[k] - ((C - D)*g_site_dot[k] + 2.j*C*total_site_reorg_energy)**2)
+
+                integrand =  np.exp(1.j*omega_ij*time - (A - 2.*B) * (1.j*total_site_reorg_energy*time + g_site)) * \
+                                    (B*g_site_dot_dot - ((C - D)*g_site_dot + 2.j*C*total_site_reorg_energy)**2)
+                
                 # perform integration
                 rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
                 # calculate uphill rate using detailed balance
