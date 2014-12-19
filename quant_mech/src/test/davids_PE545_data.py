@@ -57,7 +57,7 @@ exciton_init_states = data['D0_save_ex']
 num_realisations = site_shifts.shape[0]
 
 time_interval = 5 #10
-integration_time = np.linspace(0, time_interval, time_interval*16000) # 16000
+integration_time = np.linspace(0, time_interval, time_interval*32000) # 16000
 num_expansion_terms = 40
 mode_params = PE545_mode_params(mode_damping)
 coeffs = os.lbf_coeffs(reorg_energy1, cutoff_freq1, temperature, mode_params, num_expansion_terms)

@@ -767,8 +767,9 @@ after diagonalisation of Hamiltonian)
 Whether state 1 or 2 refers to absorbing or fluorescing state depends on whether forward or backward rate is being calculated 
 '''
 def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2, lifetime1, lifetime2, state1, state2, hamiltonian, time):
-    integrand = np.array([np.exp(1.j*(E1-E2)*t - 1.j*(E_reorg1+E_reorg2)*t - line_broadening1[i] - line_broadening2[i] - t*(1./lifetime1 + 1./lifetime2)) for i,t in enumerate(time)])
-    return 2. * (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2) * integrate.simps(np.real(integrand))
+    #integrand = np.array([np.exp(1.j*(E1-E2)*t - 1.j*(E_reorg1+E_reorg2)*t - line_broadening1[i] - line_broadening2[i] - t*(1./lifetime1 + 1./lifetime2)) for i,t in enumerate(time)])
+    integrand = np.exp(1.j*(E1-E2)*time - 1.j*(E_reorg1+E_reorg2)*time - line_broadening1 - line_broadening2 - time*(1./lifetime1 + 1./lifetime2))
+    return 2. * (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2) * integrate.simps(np.real(integrand)), integrand
 
 
 

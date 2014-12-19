@@ -74,14 +74,21 @@ def LHCII_mode_params(damping):
 delta_E_values = np.linspace(0,2000,50) # wavenumbers
 coupling_values = np.array([225., 100., 55.]) # wavenumbers
 temperature = 77. # Kelvin
-reorg_energy = 37. # wavenumbers
+site_reorg_energy = 37. # wavenumbers
 cutoff_freq = 30.
 mode_damping = 3.
+mode_params = LHCII_mode_params(mode_damping)
 
 # rates, integrands, time = os.MRT_rate_ed(hamiltonian(10., 255.), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 40.)
 # plt.plot(time, integrands[0,1])
 # plt.show()
 
+# calculate line broadening functions etc...
+time_interval = 10
+time = np.linspace(0, time_interval, 16000.*time_interval)
+num_expansion_terms = 20
+g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy = os.modified_redfield_params(time, site_reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms)
+total_site_reorg_energies = np.array([total_site_reorg_energy, total_site_reorg_energy])
 rates_data = []
    
 print 'Calculating rates with high energy modes....'
@@ -89,7 +96,13 @@ for V in coupling_values[:1]:
     print 'Calculating rates for coupling ' + str(V)
     rates = []
     for i,delta_E in enumerate(delta_E_values):
-        MRT = os.MRT_rate_ed(hamiltonian(delta_E, V), reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20, 10.)
+        site_hamiltonian = hamiltonian(delta_E, V) + np.diag(total_site_reorg_energies) # adjust site energies by reorganisation shift
+        evals, evecs = utils.sorted_eig(site_hamiltonian)
+        # calculate exciton reorganisation energies
+        exciton_reorg_energies = np.array([os.exciton_reorg_energy(evecs[i], total_site_reorg_energies) for i in range(site_hamiltonian.shape[0])])
+        print exciton_reorg_energies
+        evals = evals - exciton_reorg_energies # adjust to bare exciton reorganisation energies
+        MRT = os.modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time)
         rates.append(MRT[0,1])
     rates_data.append(rates)
       
