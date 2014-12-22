@@ -85,14 +85,14 @@ mode_params = LHCII_mode_params(mode_damping)
 
 # calculate line broadening functions etc...
 time_interval = 10
-time = np.linspace(0, time_interval, 16000.*time_interval)
+time = np.linspace(0, time_interval, 32000.*time_interval)
 num_expansion_terms = 20
 g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy = os.modified_redfield_params(time, site_reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms)
 total_site_reorg_energies = np.array([total_site_reorg_energy, total_site_reorg_energy])
 rates_data = []
    
 print 'Calculating rates with high energy modes....'
-for V in coupling_values[:1]:
+for V in coupling_values:
     print 'Calculating rates for coupling ' + str(V)
     rates = []
     for i,delta_E in enumerate(delta_E_values):
@@ -106,8 +106,10 @@ for V in coupling_values[:1]:
         rates.append(MRT[0,1])
     rates_data.append(rates)
       
-#np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
-plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates_data[0]))
+np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
+for i,rates in enumerate(rates_data):
+    plt.subplot(1,3,i+1)
+    plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))
 plt.show()
 
 # data = np.load('../../data/modified_redfield_test_high_energy_modes_data.npz')

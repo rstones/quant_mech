@@ -6,49 +6,70 @@ Module to test Forster rate calculation in open_systems module
 @author: rstones
 '''
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.integrate as integrate
 import quant_mech.open_systems as os
+import quant_mech.utils as utils
 
-# set up data
-model = PSIIRCCurrentNoiseModelIntermediateCTState() # model should be a subclass of DataModel
+e1 = 1000.
+delta_E_values = np.logspace(0,3.,100) # wavenumbers
+coupling_values = np.array([20., 100., 500.]) # wavenumbers
+ 
+def hamiltonian(delta_E, V):
+    return np.array([[e1, V],
+                    [V, e1-delta_E]])
+ 
+reorg_energy = 100. # wavenumbers
+cutoff_freq = 53. # wavenumbers
+temperature = 300.
 
-# params
-site_reorg_energy = 35.
-cutoff_freq = 40.
-temperature = 77.
-mode_damping = 10.
-mode_params = model.high_energy_mode_params(mode_damping)
+# H = hamiltonian(100., 20.)
+# time_interval = 1.
+# time = np.linspace(0, time_interval, time_interval*256000)
+# site_lbf = os.site_lbf(time, os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, None, 20))
+# plt.plot(time, np.exp(-site_lbf))
+# rate, integrand = os.forster_rate(H[0,0], H[1,1], reorg_energy, reorg_energy, site_lbf, site_lbf, 0, 0, np.array([1.,0]), np.array([0,1.]), H, time)
+# print rate
+# plt.plot(time, integrand)
+# plt.show()
 
-CT_reorg_energy_scale = 3
-CT_reorg_energy = CT_reorg_energy_scale * site_reorg_energy
-CT_lifetime = 22. * utils.WAVENUMS_TO_INVERSE_PS # wavenumbers
+# E1 = 1000.
+# E2 = 0
+# E_reorg1 = 100.
+# E_reorg2 = 100.
+# 
+# def integrand_func(t):
+#     lbf = 0
+#     for i,time_pt in enumerate(time):
+#         if time_pt - 0.000005 < t < time_pt + 0.000005:
+#             lbf = site_lbf[i]
+#             break
+#     return np.exp(1.j*(E1-E2)*t) * np.exp(-1.j*(E_reorg1+E_reorg2)*t) * np.exp(-lbf-lbf)
+# 
+# print 2. * integrate.simps(np.real(np.array([integrand_func(t) for t in time])))
+# 
+# plt.plot(time, np.array([integrand_func(t) for t in time]))
+# plt.show()
 
-
-# Hamiltonian in basis { P_D1, P_D2, Chl_D1, Chl_D2, Phep_D1, Pheo_D2, Chl_D1+Pheo_D1- } including reorganisation shift of 540cm-1 for sites and 1620cm-1 for CT state
-num_sites = 6
-H_site_CT = np.array([[15260.,150.,-42.,-55.,-6.,17.,0],
-                     [150.,15190.,-56.,-36.,20.,-2.,0],
-                     [-42.,-56.,15000.,7.,46.,-4.,70.],
-                     [-55.,-36.,7.,15100.,-5.,37.,0],
-                     [-6.,20.,46.,-5.,15030.,-3.,70.],
-                     [17.,-2.,-4.,37.,-3.,15020.,0],
-                     [0,0,70.,0,70.,0,15992.]])
-
-# 6 site Hamiltonian in basis { P_D1, P_D2, Chl_D1, Chl_D2, Phep_D1, Pheo_D2 } including reorganisation shift of 540cm-1 for all sites
-H_site = H_site_CT[:num_sites,:num_sites]
-H_site_dim = H_site.shape[0]
-exciton_energies, exciton_states = utils.sorted_eig(H_site) # diagonalise site Hamiltonian including reorganisation shifts
-exciton_states = np.array([np.append(state, 0) for state in exciton_states])
-CT_state = np.array([0, 0, 0, 0, 0, 0, 1.])
-
-# calculate modified Redfield rates
+# try to reproduce dimer rates using code copied from Mathematica
+rates_data = []
 time_interval = 20
-time = np.linspace(0,time_interval,time_interval*32000)
-num_expansion_terms = 10
-site_lbf, site_lbf_dot, site_lbf_dot_dot, total_site_reorg_energy = os.modified_redfield_params(time, site_reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms)
+time = np.linspace(0, time_interval, time_interval*16000)
+site_lbf = os.site_lbf_ed(time, os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, None, 20))
+for i,V in enumerate(coupling_values):
+    rates = []
+    for delta_E in delta_E_values:
+        H = hamiltonian(delta_E, V)
+        rates.append(os.forster_rate(H[0,0], H[1,1], reorg_energy, reorg_energy, site_lbf, site_lbf, 0, 0, np.array([1.,0]), np.array([0,1.]), H, time))
+    rates_data.append(rates)
+     
+for i,rates in enumerate(rates_data):
+    plt.subplot(1,3,i+1)
+    plt.loglog(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))
+    plt.ylim(0.01, 200)
+    plt.xlim(5,1000)
+plt.show()
 
-# calculate total exciton reorg energies
-total_site_reorg_energies = np.zeros(num_sites)
-print 'total site reorg energy: ' + str(total_site_reorg_energy)
-total_site_reorg_energies.fill(total_site_reorg_energy)
-total_exciton_reorg_energies = np.array([os.exciton_reorg_energy(exciton_states[i][:num_sites], total_site_reorg_energies) for i in range(exciton_energies.size)])
-exciton_energies = exciton_energies - total_exciton_reorg_energies # get correct bare exction energies
+    
+    
+    
