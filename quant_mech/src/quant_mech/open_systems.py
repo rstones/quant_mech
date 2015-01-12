@@ -280,8 +280,10 @@ def exciton_lbf(exciton, site_lbfs):
     num_excitons = site_lbfs.shape[0]
     num_time_pts = site_lbfs[0].shape[0]
     result = np.zeros(num_time_pts, dtype='complex')
-    for i in range(num_time_pts):
-        result[i] = np.sum([np.abs(exciton[j])**4 * site_lbfs[j][i] for j in range(num_excitons)])
+    for i in range(num_excitons):
+        result += np.abs(exciton[i])**4 * site_lbfs[i]
+#     for i in range(num_time_pts):
+#         result[i] = np.sum([np.abs(exciton[j])**4 * site_lbfs[j][i] for j in range(num_excitons)])
     #return np.sum([(np.abs(exciton[i])**4) * site_lbfs[i] for i in range(exciton.shape[0])])
     return result
 
@@ -777,6 +779,9 @@ def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2,
     transition_matrix_element = (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2)
     return transition_matrix_element * overlap, integrand
 
-
+def marcus_rate(coupling, temperature, reorg_energy, driving_force):
+    k_BT_wavenums = utils.KELVIN_TO_WAVENUMS * temperature
+    return np.abs(coupling)**2 * np.sqrt(np.pi/(k_BT_wavenums*reorg_energy)) \
+                    * np.exp(-(driving_force - reorg_energy)**2/(4.*reorg_energy*k_BT_wavenums))
 
     
