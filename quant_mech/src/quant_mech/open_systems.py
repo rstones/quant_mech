@@ -233,11 +233,16 @@ Pass the resulting array to
 '''
 def lbf_coeffs(E_reorg, cutoff_freq, temperature, high_energy_params, num_expansion_terms=0):
     coeffs = []
+    just_coeffs = []
+    matsubara_freqs = []
     
     # put Drude coeffs into list of expansion coeffs with corresponding matsubara freqs
     for n in range(num_expansion_terms):
         nu_k = matsubara_freq(n+1, temperature)
-        coeffs.append((OBO_correlation_function_coeff(E_reorg, cutoff_freq, temperature, nu_k), nu_k))
+        coeff = OBO_correlation_function_coeff(E_reorg, cutoff_freq, temperature, nu_k)
+        coeffs.append((coeff, nu_k))
+        just_coeffs.append(coeff)
+        matsubara_freqs.append(nu_k)
     
     if high_energy_params is not None and high_energy_params.any():
         for mode in high_energy_params:
@@ -248,19 +253,30 @@ def lbf_coeffs(E_reorg, cutoff_freq, temperature, high_energy_params, num_expans
             # add two leading terms of correlation function expansion
             zeta_j = np.sqrt(omega_j**2 - (gamma_j**2/4.))
             nu_plus = gamma_j/2. + 1.j*zeta_j
-            coeffs.append((UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_plus, temperature, term=1.), nu_plus))
+            coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_plus, temperature, term=1.)
+            coeffs.append((coeff, nu_plus))
+            just_coeffs.append(coeff)
+            matsubara_freqs.append(nu_plus)
             nu_minus = gamma_j/2. - 1.j*zeta_j
-            coeffs.append((UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_minus, temperature, term=-1.), nu_minus))
+            coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_minus, temperature, term=-1.)
+            coeffs.append((coeff, nu_minus))
+            just_coeffs.append(coeff)
+            matsubara_freqs.append(nu_minus)
             
             # add further expansion terms to already saved expansion terms
             for n in range(num_expansion_terms):
                 nu_k = coeffs[n][1]
                 coeff = coeffs[n][0] + UBO_correlation_function_coeffs(omega_j, lambda_j, gamma_j, nu_k, temperature)
                 coeffs[n] = (coeff, nu_k)
+                just_coeffs[n] = coeff
             
     # add leading term of Drude spectral density and corresponding cutoff freq
-    coeffs.append((OBO_correlation_function_leading_coeff(E_reorg, cutoff_freq, temperature), cutoff_freq))
-    return np.array(coeffs)
+    coeff = OBO_correlation_function_leading_coeff(E_reorg, cutoff_freq, temperature)
+    coeffs.append((coeff, cutoff_freq))
+    just_coeffs.append(coeff)
+    matsubara_freqs.append(cutoff_freq)
+    
+    return np.array(coeffs) # np.array(just_coeffs, dtype='complex'), np.array(matsubara_freqs, dtype='complex') #
 
 '''
 Calculate site line broadening function at every time point
@@ -573,17 +589,19 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
-def site_lbf_ed(time, coeffs):
+def site_lbf_ed(time, coeffs, matsubara_freqs):
     return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
+    #return (coeffs / matsubara_freqs**2) * (np.exp(-matsubara_freqs*time) + (matsubara_freqs*time) - 1.) 
     
 # first differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_ed(time, coeffs):
+def site_lbf_dot_ed(time, coeffs, matsubara_freqs):
     return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
+    #return (coeffs / matsubara_freqs) * (1. - np.exp(-matsubara_freqs*time))
 
 # second differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_dot_ed(time, coeffs):
+def site_lbf_dot_dot_ed(time, coeffs, matsubara_freqs):
     return np.array([np.sum([coeff[0] * np.exp(-coeff[1]*t) for coeff in coeffs]) for t in time], dtype='complex')
-
+    #return coeffs * np.exp(-matsubara_freqs*time)
 '''
 Calculation of modified Redfield theory rates in same way as Ed has done in Mathematica for simple case of no structured environment and identical 
 spectral density for each site.
@@ -777,7 +795,7 @@ def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2,
         #integrand = np.array([np.exp(1.j*(E1-E2)*t - 1.j*(E_reorg1+E_reorg2)*t - line_broadening1[i] - line_broadening2[i]) for i,t in enumerate(time)], dtype='complex')
     overlap = 2. * integrate.simps(np.real(integrand), time)
     transition_matrix_element = (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2)
-    return transition_matrix_element * overlap, integrand
+    return transition_matrix_element * overlap
 
 def marcus_rate(coupling, temperature, reorg_energy, driving_force):
     k_BT_wavenums = utils.KELVIN_TO_WAVENUMS * temperature
