@@ -589,17 +589,17 @@ def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cu
     return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
-def site_lbf_ed(time, coeffs, matsubara_freqs):
+def site_lbf_ed(time, coeffs):
     return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
     #return (coeffs / matsubara_freqs**2) * (np.exp(-matsubara_freqs*time) + (matsubara_freqs*time) - 1.) 
     
 # first differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_ed(time, coeffs, matsubara_freqs):
+def site_lbf_dot_ed(time, coeffs):
     return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
     #return (coeffs / matsubara_freqs) * (1. - np.exp(-matsubara_freqs*time))
 
 # second differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_dot_ed(time, coeffs, matsubara_freqs):
+def site_lbf_dot_dot_ed(time, coeffs):
     return np.array([np.sum([coeff[0] * np.exp(-coeff[1]*t) for coeff in coeffs]) for t in time], dtype='complex')
     #return coeffs * np.exp(-matsubara_freqs*time)
 '''
