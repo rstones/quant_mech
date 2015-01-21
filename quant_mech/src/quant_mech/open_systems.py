@@ -474,7 +474,7 @@ Calculates line broadening function, its derivatives and total site reorganisati
 '''
 def modified_redfield_params(time, reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms=0):
     coeffs = lbf_coeffs(reorg_energy, cutoff_freq, temperature, mode_params, num_expansion_terms)
-    total_site_reorg_energy = reorg_energy + np.sum([mode[0]*mode[1] for mode in mode_params])
+    total_site_reorg_energy = reorg_energy + (np.sum([mode[0]*mode[1] for mode in mode_params]) if mode_params is not None and mode_params.any() else 0)
     return site_lbf_ed(time, coeffs), site_lbf_dot_ed(time, coeffs), site_lbf_dot_dot_ed(time, coeffs), total_site_reorg_energy
 
 '''
