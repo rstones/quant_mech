@@ -794,7 +794,9 @@ def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2,
         integrand = np.exp(1.j*(E1-E2)*time - 1.j*(E_reorg1+E_reorg2)*time - line_broadening1 - line_broadening2)
         #integrand = np.array([np.exp(1.j*(E1-E2)*t - 1.j*(E_reorg1+E_reorg2)*t - line_broadening1[i] - line_broadening2[i]) for i,t in enumerate(time)], dtype='complex')
     overlap = 2. * integrate.simps(np.real(integrand), time)
+    #print overlap
     transition_matrix_element = (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2)
+    #print transition_matrix_element
     return transition_matrix_element * overlap
 
 def marcus_rate(coupling, temperature, reorg_energy, driving_force):
