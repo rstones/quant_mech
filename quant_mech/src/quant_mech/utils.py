@@ -113,7 +113,7 @@ def stationary_state(liouvillian, populations=None):
     stationary_state = stationary_state_unnormalised(liouvillian)
     
     dimDM = np.sqrt(stationary_state.shape[0])
-    if dimDM % 1 == 0: # check that dimension is a square number
+    if dimDM % 1 == 0: # check that dimension is an integer, therefore a square number
         stationary_state.shape = (dimDM, dimDM)    
         return (stationary_state / np.trace(stationary_state)).flatten()
     elif dimDM % 1 != 0 and populations.all():
