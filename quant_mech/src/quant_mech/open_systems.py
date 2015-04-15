@@ -94,9 +94,10 @@ def Gamma(freq, cutoff_freq, spectral_density, E_reorg, temperature, ex1, ex2, h
     ex1_square = np.square(np.abs(ex1))
     ex2_square = np.square(np.abs(ex2))
     try:
-        iterator = iter(E_reorg)
+        E_reorg_it = iter(E_reorg)
+        cutoff_freq_it = iter(cutoff_freq)
         # E_reorg is a list of reorganisation energies for each site
-        return np.sum(np.array([ex1_square[i]*ex2_square[i]*gamma(freq, cutoff_freq, spectral_density, E_reorg[i], temperature, high_energy_params) for i in range(ex1.size)]))
+        return np.sum(np.array([ex1_square[i]*ex2_square[i]*gamma(freq, cutoff_freq[i], spectral_density, E_reorg[i], temperature, high_energy_params) for i in range(ex1.size)]))
     except TypeError:
         # E_reorg is same reorganisation energy for each site
         return gamma(freq, cutoff_freq, spectral_density, E_reorg, temperature, high_energy_params) * np.dot(np.array([np.abs(i)**2 for i in ex1]), np.array([np.abs(i)**2 for i in ex2]))
@@ -120,7 +121,23 @@ def exciton_relaxation_rates(site_hamiltonian, E_reorg, cutoff_freq, spectral_de
             
     return rates
 
-
+# '''
+# calculates a rate between two excitons using redfield theory
+# '''
+# def redfield_rate(freq, exciton_states, site_reorg_energies, site_cutoff_freqs, temperature, high_energy_mode_params=None):
+#     pass
+# 
+# '''
+# Calculates population to population Redfield rates for the case of a different spectral density on each site
+# If high_energy_mode_params defined then spectral density will consist of overdamped part plus sum of underdamped modes
+# otherwise just an overdamped part will be used.
+# '''
+# def redfield_rates(exciton_energies, exciton_states, site_reorg_energies, site_cutoff_freqs, temperature, high_energy_mode_params=None):
+#     system_dim = exciton_energies.size
+#     rates = np.zeros((system_dim, system_dim))
+#     for i in range(system_dim):
+#         for j in range(system_dim):
+#             rates[i,j] = 
 
 
 '''
@@ -324,7 +341,7 @@ lbf is already defined at each time step before passing to FFT function
 '''
 def absorption_line_shape_FFT(time, state_freq, lbf, lifetime=None):
     N =  time.shape[0]
-    integrand = np.array([np.exp(-1.j*state_freq*t -lbf[i] - (t/lifetime) if lifetime else 0) for i,t in enumerate(time)])
+    integrand = np.array([np.exp(-1.j*state_freq*t -lbf[i] - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
     
     lineshape = time[-1] * fft.ifft(integrand, N)
     lineshape = np.append(lineshape[N/2:], lineshape[:N/2])
@@ -342,7 +359,7 @@ def absorption_line_shape2(t, state_freq, excitons, lbf_coeffs):
 
 def fluorescence_line_shape_FFT(time, state_freq, E_reorg, lbf, lifetime=None):
     N =  time.shape[0]
-    integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - (t/lifetime) if lifetime else 0) for i,t in enumerate(time)])
+    integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
     #integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf(t, *lbf_args)) + (-t/lifetime)) for t in time])
     
     lineshape = time[-1] * fft.ifft(integrand, N)
