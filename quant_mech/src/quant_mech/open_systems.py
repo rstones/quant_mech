@@ -341,7 +341,8 @@ lbf is already defined at each time step before passing to FFT function
 '''
 def absorption_line_shape_FFT(time, state_freq, lbf, lifetime=None):
     N =  time.shape[0]
-    integrand = np.array([np.exp(-1.j*state_freq*t -lbf[i] - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
+    #integrand = np.array([np.exp(-1.j*state_freq*t -lbf[i] - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
+    integrand = np.exp((-1.j*state_freq - ((1./lifetime) if lifetime else 0)) * time - lbf)
     
     lineshape = time[-1] * fft.ifft(integrand, N)
     lineshape = np.append(lineshape[N/2:], lineshape[:N/2])
@@ -359,8 +360,8 @@ def absorption_line_shape2(t, state_freq, excitons, lbf_coeffs):
 
 def fluorescence_line_shape_FFT(time, state_freq, E_reorg, lbf, lifetime=None):
     N =  time.shape[0]
-    integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
-    #integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf(t, *lbf_args)) + (-t/lifetime)) for t in time])
+    #integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])
+    integrand = np.exp((-1.j*state_freq + 2.j*E_reorg - ((1./lifetime) if lifetime else 0)) * time - lbf.conj())
     
     lineshape = time[-1] * fft.ifft(integrand, N)
     lineshape = np.append(lineshape[N/2:], lineshape[:N/2])

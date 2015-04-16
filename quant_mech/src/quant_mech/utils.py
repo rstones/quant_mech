@@ -24,6 +24,7 @@ EV_TO_JOULES = 1.6022e-19
 KELVIN_TO_WAVENUMS = 0.6949
 WAVENUMS_TO_INVERSE_PS = 0.06*np.pi
 WAVENUMS_TO_JOULES = 1.98630e-23
+WAVENUMS_TO_NM = 10000000.
 
 def lowering_operator(basis_size=2):
     op = np.zeros((basis_size, basis_size))
