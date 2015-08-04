@@ -236,3 +236,7 @@ def vibrational_hamiltonian(freq, basis_size):
         for i in range(basis_size):
             H_vib[i,i] = (i + 0.5)*freq
         return H_vib
+    
+    
+def detailed_balance_backward_rate(forward_rate, omega, temperature):
+    return np.exp(-omega / KELVIN_TO_WAVENUMS*temperature) * forward_rate
