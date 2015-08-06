@@ -155,7 +155,7 @@ def classical_stationary_state(liouvillian):
     stationary_state = stationary_state / np.trace(stationary_state)
     return np.diagonal(stationary_state)
 
-def nullspace(A, atol=1e-12, rtol=0):
+def nullspace(A, atol=1e-13, rtol=0):
     """Compute an approximate basis for the nullspace of A.
     
     The algorithm used by this function is based on the singular value
@@ -187,14 +187,20 @@ def nullspace(A, atol=1e-12, rtol=0):
         nullspace; each element in numpy.dot(A, ns) will be approximately
         zero.
     """
-    
     A = np.atleast_2d(A)
     u, s, vh = la.svd(A)
-    tol = max(atol, rtol * s[0])
-    nnz = (s >= tol).sum()
-    ns = vh[nnz:].conj().T
-    if ns.shape[0] and ns.shape[1] > 1:
-        print "WARNING: more than one stationary state found using nullspace function!"
+    while True:
+        tol = max(atol, rtol * s[0])
+        nnz = (s >= tol).sum()
+        ns = vh[nnz:].conj().T
+        if ns.shape[1] == 0:
+            atol *= 10.
+            print "stationary_state_svd function increasing atol to " + str(atol) + " to find nullspace"
+        elif ns.shape[1] == 1:
+            break
+        elif ns.shape[1] and ns.shape[1] > 1:
+            print "WARNING: more than one stationary state found using nullspace function!"
+            break
     return ns
 
 '''
