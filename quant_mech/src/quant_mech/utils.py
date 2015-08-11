@@ -200,7 +200,7 @@ def nullspace(A, atol=1e-13, rtol=0):
             break
         elif ns.shape[1] and ns.shape[1] > 1:
             print "WARNING: more than one stationary state found using nullspace function!"
-            break
+            return ns.T[1]
     return ns
 
 '''
