@@ -103,6 +103,20 @@ def Gamma(freq, cutoff_freq, spectral_density, E_reorg, temperature, ex1, ex2, h
         return gamma(freq, cutoff_freq, spectral_density, E_reorg, temperature, high_energy_params) * np.dot(np.array([np.abs(i)**2 for i in ex1]), np.array([np.abs(i)**2 for i in ex2]))
 
 '''
+Vectorized function for Redfield population transfer rate calculation. exciton1, exciton2, site_reorg_energies and site_cutoff_freqs
+should be provided as numpy arrays. Though if site_reorg_energies and site_cutoff_freqs are same for each site they can be scalars.
+Tested against Chapter 5 of Ed's thesis
+
+Currently uses only Drude spectral density, should probably write an OpenQuantumSystem class where you override hamiltonian and
+spectral density function with which you can then calculate different quantities from that. 
+
+Positive exciton_splitting for uphill rate, negative for downhill rate
+'''
+def redfield_population_transfer_rate(exciton_splitting, exciton1, exciton2, site_reorg_energies, site_cutoff_freqs, temperature):
+    return 2. * np.sum(exciton1**2 * exciton2**2 * overdamped_BO_spectral_density(np.abs(exciton_splitting), site_reorg_energies, site_cutoff_freqs)) \
+                    * np.abs(utils.planck_distribution(exciton_splitting, temperature))
+
+'''
 Calculates relaxation rates between exciton populations using Redfield theory
 
 All these relaxation rate functions currently assume identical reorganisation energies for all sites, so need to generalise this.
