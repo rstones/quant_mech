@@ -20,7 +20,7 @@ from datetime import datetime
 # jump_operators should be list of tuples (first entry of tuple is lindblad operator, second is rate)
 def super_operator(H, jump_operators):
     #print "Constructing super-operator..."
-    I = np.eye(H.shape[0], H.shape[1])
+    I = np.eye(H.shape[0], H.shape[1], dtype='complex')
     L = -1.j * (np.kron(H, I) - np.kron(I, H))
     if jump_operators:
         L += incoherent_super_operator(jump_operators)
