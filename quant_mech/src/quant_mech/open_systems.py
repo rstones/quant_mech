@@ -409,97 +409,7 @@ def modified_redfield_mixing_function(line_broadening_functions, reorg_energies,
     
     return np.array([(lbf0[i] - (lbf1[i] - lbf2[i] + 2.*1.j*reorg_energies[0]) ** 2) * np.exp(2. * (lbf3[i] + 1.j*reorg_energies[1]*t)) for i,t in enumerate(time[:-5])])
 
-'''
-Uses quad function (this is not that reliable as it is not made to integrate a function sampled at given time intervals, use
-modified_redfield_integration_simps instead)
-'''
-def modified_redfield_integration(abs_line_shape, fl_line_shape, mixing_function, time):
-    sample_gap = time[1] - time[0]
 
-    def integrand(t):
-        time_index = 0
-        for i,v in enumerate(time):
-            if (t < v + sample_gap) and (t > v - sample_gap):
-                time_index = i
-                break
-        return np.real(abs_line_shape[time_index] * fl_line_shape[time_index] * mixing_function[time_index])
-     
-    return 2. * integrate.quad(integrand, 0, time[-1])[0]
-
-def modified_redfield_integration_simps(abs_line_shape, fl_line_shape, mixing_function, time):
-    integrand = abs_line_shape * fl_line_shape * mixing_function
-    return 2. * integrate.simps(np.real(integrand), time)
-
-def modified_redfield_integration_trapz(abs_line_shape, fl_line_shape, mixing_function, time):
-    return 2. * np.trapz(np.real(abs_line_shape * fl_line_shape * mixing_function), time)
-
-def modified_redfield_integration_freq_domain(abs_line_shape, fl_line_shape, mixing_function, time):
-    import matplotlib.pyplot as plt
-#     plt.loglog(time, np.abs(abs_line_shape), label='abs')
-#     plt.loglog(time, np.abs(fl_line_shape), label='fl')
-#     plt.loglog(time, np.abs(mixing_function), label='mix')
-#     plt.legend()
-#     plt.show()
-    
-    N =  time.shape[0]
-    abs_freq = time[-1] * fft.ifft(abs_line_shape, N)
-    abs_freq = np.append(abs_freq[N/2:], abs_freq[:N/2])
-    fl_freq = time[-1] * fft.ifft(fl_line_shape, N)
-    fl_freq = np.append(fl_freq[N/2:], fl_freq[:N/2])
-    mix_freq = time[-1] * fft.ifft(mixing_function, N)
-    mix_freq = np.append(mix_freq[N/2:], mix_freq[:N/2])
-    freq = FFT_freq(time)
-    num_freq_samples = freq.shape[0]
-    freq_min = freq[0]
-    freq_max = freq[-1]
-    freq_gap = np.abs(freq[0]) - np.abs(freq[1])
-    
-    
-#     plt.plot(freq, abs_freq, label='abs')
-#     plt.plot(freq, fl_freq, label='fl')
-#     #plt.plot(freq, mix_freq, label="mix")
-#     plt.legend()
-#     plt.show()
-    
-    # find midpoint of absorption and fluorescence peaks, centre freq range around this point
-    freq_abs_max = freq[np.abs(abs_freq - np.amax(abs_freq)).argmin()]
-    freq_fl_max = freq[np.abs(fl_freq - np.amax(fl_freq)).argmin()]
-    peak_midpoint = (freq_abs_max + freq_fl_max) / 2.
-    print "peak midpoint: " + str(peak_midpoint)
-    # find index of midpoint freq
-    midpoint_index = 0
-    for i,w in enumerate(freq):
-        if w - freq_gap < peak_midpoint < w + freq_gap:
-            midpoint_index = i
-            break
-    print "midpoint index: " + str(midpoint_index)
-    # freq range for abs and fl functions will then be number of samples from midpoint to nearest end of range
-    abs_fl_freq_range =  0
-    if midpoint_index >= num_freq_samples/2:
-        samples_til_end = num_freq_samples - midpoint_index
-        abs_fl_freq_range = samples_til_end if samples_til_end % 2 == 0 else samples_til_end - 1
-    print "abs fl freq range: " + str(abs_fl_freq_range)
-    
-    # restrict freq samples, abs and fl functions to symmetric freq interval around midpoint of abs and fl peaks
-    freq_interval = freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
-    abs_interval = abs_freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
-    fl_interval = fl_freq[midpoint_index-abs_fl_freq_range/2:midpoint_index+abs_fl_freq_range/2]
-    print "fl interval: " + str(fl_interval.shape)
-    
-    # abs and fl function need to be defined in 2D space (dimensions w1 and w2, where fl is a function of w1 and abs a function of w2 and both 
-    # constant in the other argument)
-    num_freq_interval_samples = freq_interval.shape[0]
-    fl_grid = np.vstack((fl_interval for i in range(num_freq_interval_samples)))
-    abs_grid = np.vstack((abs_interval for i in range(num_freq_interval_samples))).T
-    
-    # now define mixing function over range twice as big as that for abs and fl functions (since its argument is a frequency difference)
-    mix_grid = np.empty((num_freq_interval_samples, num_freq_interval_samples))
-    for i,w1 in enumerate(freq_interval):
-        for j,w2 in enumerate(freq_interval):
-            w_diff = w1 - w2
-            mix_grid[i,j] = mix_freq[np.abs(freq_interval-w_diff).argmin()] # this indexes mix_freq at index of element of freq nearest to w_diff  
-
-    return 1./(np.pi**2) * integrate.simps(int.simps(fl_grid * abs_grid * mix_grid))
 
 '''
 Calculates line broadening function, its derivatives and total site reorganisation energy for modfied Redfield calculations
@@ -510,7 +420,7 @@ def modified_redfield_params(time, reorg_energy, cutoff_freq, temperature, mode_
     return site_lbf_ed(time, coeffs), site_lbf_dot_ed(time, coeffs), site_lbf_dot_dot_ed(time, coeffs), total_site_reorg_energy
 
 '''
-Calculates modified Redfield rates
+The definitive modified Redfield population transfer rate calculator. Assuming the spectral density on each site is identical...
 '''
 def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):    
     system_dim = evals.size
@@ -542,83 +452,7 @@ def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, to
 
     return rates
 
-'''
-Calculates exciton population transfer rates using modified Redfield theory
 
-Initially will assume over-damped Brownian oscillator spectral density for low energy phonons and under-damped Brownian
-oscillator spectral density for discrete high energy modes.
-'''
-def modified_redfield_relaxation_rates(site_hamiltonian, site_reorg_energies, cutoff_freq, high_energy_mode_params, temperature, num_expansion_terms=0, time_interval=0.5):
-    time = np.linspace(0, time_interval, 16005)
-    num_sites = site_hamiltonian.shape[0]
-    
-    # diagonalise site Hamiltonian to get exciton energies and eigenvectors
-    evals, evecs = utils.sorted_eig(site_hamiltonian)
-    
-    # calculate site line broadening functions
-    site_lbfs = []
-    for reorg_energy in site_reorg_energies:
-        site_lbfs.append(site_lbf(time, lbf_coeffs(reorg_energy, cutoff_freq, temperature, high_energy_mode_params, num_expansion_terms)))
-    site_lbfs = np.array(site_lbfs, dtype='complex')
-    
-    # calculate exciton reorg energies and line broadening functions for individual excitons
-    # first calculate the contribution to total reorganisation energy of sites due to high energy modes and include this in site reorg energies
-    # (this currently assumes all sites have same spectral density)
-    high_energy_reorg_energy = np.sum([mode_params[0]*mode_params[1] for mode_params in high_energy_mode_params]) if high_energy_mode_params is not None and high_energy_mode_params.any() else 0
-    site_reorg_energies += high_energy_reorg_energy
-    exciton_reorg_energies = []
-    exciton_lbfs = []
-    for exciton in evecs:
-        exciton_reorg_energies.append(exciton_reorg_energy(exciton, site_reorg_energies))
-        exciton_lbfs.append(exciton_lbf(exciton, site_lbfs))
-    exciton_lbfs = np.array(exciton_lbfs, dtype='complex')
-        
-    # store reorg energies for exciton mixing in N(N-1) x 3 matrix and generalise function to calculate exciton reorg energies
-    # store line broadening functions for exciton mixing in N(N-1) x 6 matrix
-    num_transitions = num_sites*(num_sites - 1.)
-    counter = 0
-    mixing_reorg_energies = np.empty((num_transitions, 2))
-    mixing_line_broadening_functions = np.empty((num_transitions, 4, time.size), dtype='complex')
-    for i in range(num_sites):
-        for j in range(num_sites):
-            if i != j:
-                mixing_reorg_energies[counter, 0] = generalised_exciton_reorg_energy(np.array([evecs[j], evecs[i], evecs[j], evecs[j]]), site_reorg_energies)
-                mixing_reorg_energies[counter, 1] = generalised_exciton_reorg_energy(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_reorg_energies)
-                
-                mixing_line_broadening_functions[counter, 0] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[j], evecs[i]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 1] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[j], evecs[j]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 2] = generalised_exciton_lbf(np.array([evecs[j], evecs[i], evecs[i], evecs[i]]), site_lbfs)
-                mixing_line_broadening_functions[counter, 3] = generalised_exciton_lbf(np.array([evecs[i], evecs[i], evecs[j], evecs[j]]), site_lbfs)
-                
-                counter += 1
-                
-    # calculate fluoresence and absorption via FFT for each exciton
-    abs_lineshapes = np.empty((num_sites, time.size), dtype='complex')
-    fl_lineshapes = np.empty((num_sites, time.size), dtype='complex')
-    for i in range(num_sites):
-        abs_lineshapes[i] = absorption_line_shape(time, evals[i]+exciton_reorg_energies[i], exciton_lbfs[i])
-        fl_lineshapes[i] = fluorescence_line_shape(time, evals[i]+exciton_reorg_energies[i], exciton_reorg_energies[i], exciton_lbfs[i])
-    
-    # calculate N function for each pair of excitons
-    mixing_function = np.empty((num_sites, num_sites, time.size-5), dtype='complex')
-    start_index = 0
-    for i in range(num_sites):
-        for j in range(num_sites):
-            if i != j:
-                mixing_function[i,j] = modified_redfield_mixing_function(mixing_line_broadening_functions[start_index], mixing_reorg_energies[start_index], time)
-                start_index += 1
-    
-    # return integrand and time arrays before integrating to check integrand decays within time interval
-    #return abs_lineshapes, fl_lineshapes, mixing_function, time
-    
-    # put everything together to calculate modified Redfield rates between all excitons
-    rates = np.zeros((num_sites, num_sites))
-    for i in range(num_sites):
-        for j in range(num_sites):
-            if i != j:
-                rates[i,j] = modified_redfield_integration_simps(abs_lineshapes[i][:-5], fl_lineshapes[j][:-5].conj(), mixing_function[i,j], time[:-5])
- 
-    return rates#, abs_lineshapes, fl_lineshapes, mixing_function, time
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):

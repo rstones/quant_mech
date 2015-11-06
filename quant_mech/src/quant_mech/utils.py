@@ -224,6 +224,10 @@ def differentiate_function(f, x):
 
 '''
 Returns eigenvalues and eigenvectors of the matrix sorted in ascending order of energy
+
+Note: Eigenvectors are returned along the rows of the output array in contrast to in columns
+like in np.linalg.eig. This makes it easier to iterate over the set of excitons in subsequent
+calculations. 
 '''
 def sorted_eig(M):
     evals, evecs = np.linalg.eig(M)
