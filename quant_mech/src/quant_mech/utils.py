@@ -195,7 +195,7 @@ def nullspace(A, atol=1e-13, rtol=0):
         ns = vh[nnz:].conj().T
         if ns.shape[1] == 0:
             atol *= 10.
-            print "stationary_state_svd function increasing atol to " + str(atol) + " to find nullspace"
+            #print "stationary_state_svd function increasing atol to " + str(atol) + " to find nullspace"
         elif ns.shape[1] == 1:
             break
         elif ns.shape[1] and ns.shape[1] > 1:
