@@ -15,6 +15,7 @@ import numpy.fft as fft
 import scipy.integrate as integrate
 import quant_mech.utils as utils
 from datetime import datetime
+from boto import resultset
 
 # Function to construct Liouvillian super operator
 # jump_operators should be list of tuples (first entry of tuple is lindblad operator, second is rate)
@@ -664,6 +665,61 @@ def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2,
     transition_matrix_element = (np.abs(np.dot(state2, np.dot(hamiltonian, state1)))**2)
     #print transition_matrix_element
     return transition_matrix_element * overlap
+
+def exciton_lifetimes(hamiltonian, site_reorg_energies, site_cutoff_freqs, temperature, high_energy_modes=None):
+    redfield_rates = exciton_relaxation_rates(hamiltonian, site_reorg_energies, site_cutoff_freqs, bo_spectral_density, temperature, high_energy_params=None)
+    return np.array([2./(np.sum(redfield_rates[i])) for i in range(hamiltonian.shape[0])]) 
+
+'''
+Calculates rate for transfer between two clusters of chromophores. The chromophores within each cluster are strongly coupled forming excitons
+while coupling between the clusters is weak relative to the environmental coupling.
+The Hamiltonian must be for all chromophores with the matrix elements for each cluster grouped together. It is assumed that the site energies
+will not include a reorganisation shift.
+'''
+def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
+    sys_dim = cluster1_dim+cluster2_dim
+    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim]
+    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:]
+    
+    # diagonalise individual clusters
+    cluster1_evals, cluster1_evecs = utils.sorted_eig(cluster1_hamiltonian)
+    cluster2_evals, cluster2_evecs = utils.sorted_eig(cluster2_hamiltonian)
+    
+    # calculate inter-cluster exciton couplings
+    couplings = hamiltonian[:cluster1_dim,cluster1_dim:]
+    couplings_matrix = np.dot(cluster1_evecs.conj(), np.dot(couplings, cluster2_evecs.T))
+    
+    # construct partially diagonalised Hamiltonian
+    exciton_hamiltonian = np.asarray(np.bmat([[np.diag(cluster1_evals), couplings_matrix], [couplings_matrix.conj().T, np.diag(cluster2_evals)]]))
+    
+    # calculate exciton reorg energies
+    cluster1_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster1_evecs[i], site_reorg_energies[:cluster1_dim]) for i in range(cluster1_dim)])
+    cluster2_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster2_evecs[i], site_reorg_energies[cluster1_dim:]) for i in range(cluster2_dim)])
+    
+    # calculate exciton line broadening functions
+    cluster1_lbfs = np.array([exciton_lbf(cluster1_evecs[i], site_lbfs[:cluster1_dim]) for i in range(cluster1_dim)])
+    cluster2_lbfs = np.array([exciton_lbf(cluster2_evecs[i], site_lbfs[cluster1_dim:]) for i in range(cluster2_dim)])
+    
+    # calculate lifetimes
+    cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, site_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
+    cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, site_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
+    
+    # calculate individual Forster rates
+    forster_rates = np.zeros((cluster1_dim, cluster2_dim))
+    for i in range(cluster1_dim):
+        for j in range(cluster2_dim):
+            cluster1_state = np.zeros(sys_dim)
+            cluster1_state[i] = 1.
+            cluster2_state = np.zeros(sys_dim)
+            cluster2_state[cluster1_dim+j] = 1.
+            forster_rates[i,j] = forster_rate(cluster1_evals[i], cluster2_evals[j], cluster1_exciton_reorg_energies[i], \
+                                                  cluster2_exciton_reorg_energies[j], cluster1_lbfs[i], cluster2_lbfs[j], cluster1_lifetimes[i], cluster2_lifetimes[j], \
+                                                  cluster1_state, cluster2_state, exciton_hamiltonian, time)
+    
+    # calculate generalised Forster rate
+    B800_thermal_state = utils.general_thermal_state(np.diag(cluster1_evals), temperature)
+    result = np.dot(np.diag(B800_thermal_state), np.sum(forster_rates, axis=1))
+    return result
 
 def marcus_rate(coupling, temperature, reorg_energy, driving_force):
     k_BT_wavenums = utils.KELVIN_TO_WAVENUMS * temperature
