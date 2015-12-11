@@ -704,6 +704,9 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
     cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, site_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
     cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, site_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
     
+    bare_cluster1_evals = cluster1_evals - cluster1_exciton_reorg_energies
+    bare_cluster2_evals = cluster2_evals - cluster2_exciton_reorg_energies
+    
     # calculate individual Forster rates
     forster_rates = np.zeros((cluster1_dim, cluster2_dim))
     for i in range(cluster1_dim):
@@ -712,7 +715,7 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
             cluster1_state[i] = 1.
             cluster2_state = np.zeros(sys_dim)
             cluster2_state[cluster1_dim+j] = 1.
-            forster_rates[i,j] = forster_rate(cluster1_evals[i], cluster2_evals[j], cluster1_exciton_reorg_energies[i], \
+            forster_rates[i,j] = forster_rate(bare_cluster1_evals[i], bare_cluster2_evals[j], cluster1_exciton_reorg_energies[i], \
                                                   cluster2_exciton_reorg_energies[j], cluster1_lbfs[i], cluster2_lbfs[j], cluster1_lifetimes[i], cluster2_lifetimes[j], \
                                                   cluster1_state, cluster2_state, exciton_hamiltonian, time)
     
