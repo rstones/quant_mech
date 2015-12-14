@@ -674,7 +674,7 @@ def exciton_lifetimes(hamiltonian, site_reorg_energies, site_cutoff_freqs, tempe
 Calculates rate for transfer between two clusters of chromophores. The chromophores within each cluster are strongly coupled forming excitons
 while coupling between the clusters is weak relative to the environmental coupling.
 The Hamiltonian must be for all chromophores with the matrix elements for each cluster grouped together. It is assumed that the site energies
-will not include a reorganisation shift.
+will include the reorganisation energy shift. The reorg energy is removed as the forster_rate function expects bare exciton energies.
 '''
 def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
     sys_dim = cluster1_dim+cluster2_dim
