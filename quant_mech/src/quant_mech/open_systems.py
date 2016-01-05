@@ -678,8 +678,8 @@ will include the reorganisation energy shift. The reorg energy is removed as the
 '''
 def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
     sys_dim = cluster1_dim+cluster2_dim
-    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim]
-    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:]
+    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim] - site_reorg_energies[:cluster1_dim]
+    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:] - site_reorg_energies[cluster1_dim:]
     
     # diagonalise individual clusters
     cluster1_evals, cluster1_evecs = utils.sorted_eig(cluster1_hamiltonian)
@@ -704,8 +704,8 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
     cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, site_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
     cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, site_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
     
-    bare_cluster1_evals = cluster1_evals - cluster1_exciton_reorg_energies
-    bare_cluster2_evals = cluster2_evals - cluster2_exciton_reorg_energies
+    bare_cluster1_evals = cluster1_evals #- cluster1_exciton_reorg_energies
+    bare_cluster2_evals = cluster2_evals #- cluster2_exciton_reorg_energies
     
     # calculate individual Forster rates
     forster_rates = np.zeros((cluster1_dim, cluster2_dim))
