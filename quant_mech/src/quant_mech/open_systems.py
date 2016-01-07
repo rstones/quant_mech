@@ -453,7 +453,49 @@ def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, to
 
     return rates
 
+'''
+Modified Redfield rate calculator which can cope with different spectral densities on each site.
+'''
+def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_dot_dot, site_reorg_energies, temperature, time):    
+    system_dim = evals.size
+    rates = np.zeros((system_dim, system_dim))
+    
+    # excitons are labelled from lowest in energy to highest
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if j > i: # should only loop over rates for downhill energy transfer
+                # get energy gap
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_j - E_i #E_i - E_j if E_i > E_j else E_j - E_i
+                # calculate overlaps (c_alpha and c_beta's)
+                c_alphas = np.array([evecs[i]]) # add a second dimension (of 1) to evecs so we can do transpose below
+                c_betas = np.array([evecs[j]])
+                A = c_alphas.T**4
+                B = c_betas.T**4
+                C = c_alphas.T**2 * c_betas.T**2
+                D = c_alphas.T * c_betas.T**3
+                E = c_alphas.T**3 * c_betas.T
+                # calculate reorg energies and line broadening functions
+                lambda_aaaa = np.sum(A * site_reorg_energies)
+                lambda_bbbb = np.sum(B * site_reorg_energies)
+                g_aaaa = np.sum(A * g_sites, axis=0)
+                g_bbbb = np.sum(B * g_sites, axis=0)
+                g_bbaa = np.sum(C * g_sites, axis=0)
+                lambda_bbaa = np.sum(C * site_reorg_energies)
+                g_dot_dot_baba = np.sum(C * g_sites_dot_dot, axis=0)
+                g_dot_babb = np.sum(D * g_sites_dot, axis=0)
+                g_dot_baaa = np.sum(E * g_sites_dot, axis=0)
+                lambda_babb = np.sum(D * site_reorg_energies)
+                # calculate integrand
+                integrand = np.exp(1.j*omega_ij*time - 1.j*(lambda_aaaa + lambda_bbbb)*time - g_aaaa - g_bbbb + 2.*g_bbaa + 2.j*lambda_bbaa) \
+                                    * (g_dot_dot_baba - (g_dot_babb - g_dot_baaa + 2.j*lambda_babb)**2)
+                # perform integration
+                rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
+                # calculate uphill rate using detailed balance
+                rates[j,i] = np.exp(-omega_ij/(utils.KELVIN_TO_WAVENUMS*temperature)) * rates[i,j]
 
+    return rates
 
 # site line broadening function, check against other function
 def site_lbf_ed(time, coeffs):
