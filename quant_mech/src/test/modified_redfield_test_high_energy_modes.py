@@ -106,7 +106,7 @@ for V in coupling_values:
         rates.append(MRT[0,1])
     rates_data.append(rates)
       
-np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
+#np.savez('../../data/modified_redfield_test_high_energy_modes_data.npz', delta_E_values=delta_E_values, coupling_values=coupling_values, rates=rates_data)
 for i,rates in enumerate(rates_data):
     plt.subplot(1,3,i+1)
     plt.plot(delta_E_values, utils.WAVENUMS_TO_INVERSE_PS*np.array(rates))

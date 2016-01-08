@@ -471,6 +471,7 @@ def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = np.array([evecs[i]]) # add a second dimension (of 1) to evecs so we can do transpose below
                 c_betas = np.array([evecs[j]])
+                site_reorg_energies = np.array([site_reorg_energies]).T
                 A = c_alphas.T**4
                 B = c_betas.T**4
                 C = c_alphas.T**2 * c_betas.T**2
@@ -488,7 +489,7 @@ def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_
                 g_dot_baaa = np.sum(E * g_sites_dot, axis=0)
                 lambda_babb = np.sum(D * site_reorg_energies)
                 # calculate integrand
-                integrand = np.exp(1.j*omega_ij*time - 1.j*(lambda_aaaa + lambda_bbbb)*time - g_aaaa - g_bbbb + 2.*g_bbaa + 2.j*lambda_bbaa) \
+                integrand = np.exp(1.j*omega_ij*time - 1.j*(lambda_aaaa + lambda_bbbb - 2.*lambda_bbaa)*time - g_aaaa - g_bbbb + 2.*g_bbaa) \
                                     * (g_dot_dot_baba - (g_dot_babb - g_dot_baaa + 2.j*lambda_babb)**2)
                 # perform integration
                 rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
@@ -720,8 +721,8 @@ will include the reorganisation energy shift. The reorg energy is removed as the
 '''
 def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
     sys_dim = cluster1_dim+cluster2_dim
-    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim] - site_reorg_energies[:cluster1_dim]
-    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:] - site_reorg_energies[cluster1_dim:]
+    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim] - np.diag(site_reorg_energies[:cluster1_dim])
+    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:] - np.diag(site_reorg_energies[cluster1_dim:])
     
     # diagonalise individual clusters
     cluster1_evals, cluster1_evecs = utils.sorted_eig(cluster1_hamiltonian)
