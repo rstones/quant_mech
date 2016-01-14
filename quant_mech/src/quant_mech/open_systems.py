@@ -710,7 +710,7 @@ def forster_rate(E1, E2, E_reorg1, E_reorg2, line_broadening1, line_broadening2,
     return transition_matrix_element * overlap
 
 def exciton_lifetimes(hamiltonian, site_reorg_energies, site_cutoff_freqs, temperature, high_energy_modes=None):
-    redfield_rates = exciton_relaxation_rates(hamiltonian, site_reorg_energies, site_cutoff_freqs, bo_spectral_density, temperature, high_energy_params=None)
+    redfield_rates = exciton_relaxation_rates(hamiltonian, site_reorg_energies, site_cutoff_freqs, bo_spectral_density, temperature, high_energy_modes)
     return np.array([2./(np.sum(redfield_rates[i])) for i in range(hamiltonian.shape[0])]) 
 
 '''
