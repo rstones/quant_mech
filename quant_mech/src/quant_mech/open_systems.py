@@ -721,8 +721,8 @@ will include the reorganisation energy shift. The reorg energy is removed as the
 '''
 def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
     sys_dim = cluster1_dim+cluster2_dim
-    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim] - np.diag(site_reorg_energies[:cluster1_dim])
-    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:] - np.diag(site_reorg_energies[cluster1_dim:])
+    cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim]# - np.diag(site_reorg_energies[:cluster1_dim])
+    cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:]# - np.diag(site_reorg_energies[cluster1_dim:])
     
     # diagonalise individual clusters
     cluster1_evals, cluster1_evecs = utils.sorted_eig(cluster1_hamiltonian)
