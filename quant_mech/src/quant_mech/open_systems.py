@@ -747,8 +747,8 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
     cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, site_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
     cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, site_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
     
-    bare_cluster1_evals = cluster1_evals #- cluster1_exciton_reorg_energies
-    bare_cluster2_evals = cluster2_evals #- cluster2_exciton_reorg_energies
+    bare_cluster1_evals = cluster1_evals - cluster1_exciton_reorg_energies
+    bare_cluster2_evals = cluster2_evals - cluster2_exciton_reorg_energies
     
     # calculate individual Forster rates
     forster_rates = np.zeros((cluster1_dim, cluster2_dim))
@@ -763,7 +763,10 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
                                                   cluster1_state, cluster2_state, exciton_hamiltonian, time)
     
     # calculate generalised Forster rate
-    B800_thermal_state = utils.general_thermal_state(np.diag(cluster1_evals), temperature)
+    '''
+    WARNING: I have changed this to test out taking the thermal distribution over the bare cluster 1 exciton energies
+    '''
+    B800_thermal_state = utils.general_thermal_state(np.diag(bare_cluster1_evals), temperature)
     result = np.dot(np.diag(B800_thermal_state), np.sum(forster_rates, axis=1))
     return result
 
