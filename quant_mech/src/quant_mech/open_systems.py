@@ -763,10 +763,7 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
                                                   cluster1_state, cluster2_state, exciton_hamiltonian, time)
     
     # calculate generalised Forster rate
-    '''
-    WARNING: I have changed this to test out taking the thermal distribution over the bare cluster 1 exciton energies
-    '''
-    B800_thermal_state = utils.general_thermal_state(np.diag(bare_cluster1_evals), temperature)
+    B800_thermal_state = utils.general_thermal_state(np.diag(cluster1_evals), temperature)
     result = np.dot(np.diag(B800_thermal_state), np.sum(forster_rates, axis=1))
     return result
 
