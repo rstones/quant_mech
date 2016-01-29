@@ -719,7 +719,7 @@ while coupling between the clusters is weak relative to the environmental coupli
 The Hamiltonian must be for all chromophores with the matrix elements for each cluster grouped together. It is assumed that the site energies
 will include the reorganisation energy shift. The reorg energy is removed as the forster_rate function expects bare exciton energies.
 '''
-def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
+def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, total_site_reorg_energies, site_cutoff_freqs, site_lbfs, time, temperature, high_energy_modes=None):
     sys_dim = cluster1_dim+cluster2_dim
     cluster1_hamiltonian = hamiltonian[:cluster1_dim, :cluster1_dim]# - np.diag(site_reorg_energies[:cluster1_dim])
     cluster2_hamiltonian = hamiltonian[cluster1_dim:, cluster1_dim:]# - np.diag(site_reorg_energies[cluster1_dim:])
@@ -736,16 +736,17 @@ def generalised_forster_rate(hamiltonian, cluster1_dim, cluster2_dim, site_reorg
     exciton_hamiltonian = np.asarray(np.bmat([[np.diag(cluster1_evals), couplings_matrix], [couplings_matrix.conj().T, np.diag(cluster2_evals)]]))
     
     # calculate exciton reorg energies
-    cluster1_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster1_evecs[i], site_reorg_energies[:cluster1_dim]) for i in range(cluster1_dim)])
-    cluster2_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster2_evecs[i], site_reorg_energies[cluster1_dim:]) for i in range(cluster2_dim)])
+    cluster1_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster1_evecs[i], total_site_reorg_energies[:cluster1_dim]) for i in range(cluster1_dim)])
+    cluster2_exciton_reorg_energies = np.array([exciton_reorg_energy(cluster2_evecs[i], total_site_reorg_energies[cluster1_dim:]) for i in range(cluster2_dim)])
     
     # calculate exciton line broadening functions
     cluster1_lbfs = np.array([exciton_lbf(cluster1_evecs[i], site_lbfs[:cluster1_dim]) for i in range(cluster1_dim)])
     cluster2_lbfs = np.array([exciton_lbf(cluster2_evecs[i], site_lbfs[cluster1_dim:]) for i in range(cluster2_dim)])
     
     # calculate lifetimes
-    cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, site_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
-    cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, site_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
+    OBO_reorg_energies = total_site_reorg_energies - np.sum([s[0]*s[1] for s in high_energy_modes])
+    cluster1_lifetimes = exciton_lifetimes(cluster1_hamiltonian, OBO_reorg_energies[:cluster1_dim], site_cutoff_freqs[:cluster1_dim], temperature, high_energy_modes=high_energy_modes)
+    cluster2_lifetimes = exciton_lifetimes(cluster2_hamiltonian, OBO_reorg_energies[cluster1_dim:], site_cutoff_freqs[cluster1_dim:], temperature, high_energy_modes=high_energy_modes)
     
     bare_cluster1_evals = cluster1_evals - cluster1_exciton_reorg_energies
     bare_cluster2_evals = cluster2_evals - cluster2_exciton_reorg_energies
