@@ -8,7 +8,7 @@ import scipy.io as io
 import matplotlib.pyplot as plt
 import quant_mech.open_systems as os
 import quant_mech.utils as utils
-import quant_mech.time_evolution as te
+import quant_mech.time_utils as te
 from datetime import datetime
 
 time_log = False

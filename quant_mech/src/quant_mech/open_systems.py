@@ -15,7 +15,6 @@ import numpy.fft as fft
 import scipy.integrate as integrate
 import quant_mech.utils as utils
 from datetime import datetime
-from boto import resultset
 
 # Function to construct Liouvillian super operator
 # jump_operators should be list of tuples (first entry of tuple is lindblad operator, second is rate)
@@ -56,7 +55,7 @@ def RK4(func, init_state, interval, step_size):
         state = state + (1./6.) * step_size * (k1 + 2.*k2 + 2.*k3 + k4)
         state_evolution.append(state)
         
-    return state_evolution
+    return np.array(state_evolution)
 
 def overdamped_BO_spectral_density(freq, E_reorg, cutoff_freq):
     return (2. * E_reorg) * ((freq * cutoff_freq) / (freq**2 + cutoff_freq**2))
@@ -135,6 +134,55 @@ def exciton_relaxation_rates(site_hamiltonian, E_reorg, cutoff_freq, spectral_de
             rates[i,j] = Gamma(w, cutoff_freq, spectral_density, E_reorg, temperature, evecs[i], evecs[j], high_energy_params) if w != 0 else 0
             
     return rates
+
+'''
+Calculates the redfield tensor for an excitonic system with identical Drude-Lorentz spectral density on each site.
+Returns tensor in the flattened basis {rho_11, rho_12, rho_13,.... }
+'''
+def redfield_tensor_identical_drude(site_hamiltonian, reorg_energy, cutoff_freq, temperature):
+    
+    system_dimension = site_hamiltonian.shape[0]
+    evalues,evectors = utils.sorted_eig(site_hamiltonian) # may need to get bare exciton energies here
+    #evalues,evectors = np.linalg.eig(site_hamiltonian)
+    
+    # site_correlation function in frequency space for Drude-Lorentz spectral density
+    def site_correlation_function(freq):
+        if freq != 0 :
+            return overdamped_BO_spectral_density(np.abs(freq), reorg_energy, cutoff_freq) * np.abs(utils.planck_distribution(freq, temperature))
+        else:
+            return 0
+    
+    # construct system part of system-bath coupling operators (single diagonal elements for this simple case)
+    site_bath_coupling_matrices = np.zeros((system_dimension, system_dimension, system_dimension))
+    for i in range(system_dimension):
+        site_bath_coupling_matrices[i,i,i] = 1.
+    
+    # construct pairs of indices to iterate over when constructing the tensor
+    from itertools import product
+    indices = [(i,j) for i,j in product(range(system_dimension), range(system_dimension))]
+        
+    def Gamma(a, b, c, d):
+        return np.real(np.sum([np.dot(evectors[a], np.dot(site_bath_coupling_matrices[n], evectors[b])) \
+                                * np.dot(evectors[c], np.dot(site_bath_coupling_matrices[n], evectors[d])) for n in range(system_dimension)]) \
+                                * site_correlation_function(evalues[c]-evalues[d]))
+        
+    def tensor_element(a, b, c, d):
+        element = 0
+        if a == c:
+            for e in range(system_dimension):
+                element += Gamma(b, e, e, d)
+        if b == d:
+            for e in range(system_dimension):
+                element += Gamma(a, e, e ,c)
+        element -= Gamma(c, a, b, d) + Gamma(d, b, a, c)
+        return element
+    
+    result = np.zeros((system_dimension**2, system_dimension**2))
+    for i,ab in enumerate(indices):
+        for j,cd in enumerate(indices):
+            result[i,j] = tensor_element(ab[0], ab[1], cd[0], cd[1])
+    
+    return result
 
 # '''
 # calculates a rate between two excitons using redfield theory
@@ -265,16 +313,16 @@ Pass the resulting array to
 '''
 def lbf_coeffs(E_reorg, cutoff_freq, temperature, high_energy_params, num_expansion_terms=0):
     coeffs = []
-    just_coeffs = []
-    matsubara_freqs = []
+    #just_coeffs = []
+    #matsubara_freqs = []
     
     # put Drude coeffs into list of expansion coeffs with corresponding matsubara freqs
     for n in range(num_expansion_terms):
         nu_k = matsubara_freq(n+1, temperature)
         coeff = OBO_correlation_function_coeff(E_reorg, cutoff_freq, temperature, nu_k)
-        coeffs.append((coeff, nu_k))
-        just_coeffs.append(coeff)
-        matsubara_freqs.append(nu_k)
+        coeffs.append([coeff, nu_k])
+        #just_coeffs.append(coeff)
+        #matsubara_freqs.append(nu_k)
     
     if high_energy_params is not None and high_energy_params.any():
         for mode in high_energy_params:
@@ -286,27 +334,27 @@ def lbf_coeffs(E_reorg, cutoff_freq, temperature, high_energy_params, num_expans
             zeta_j = np.sqrt(omega_j**2 - (gamma_j**2/4.))
             nu_plus = gamma_j/2. + 1.j*zeta_j
             coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_plus, temperature, term=1.)
-            coeffs.append((coeff, nu_plus))
-            just_coeffs.append(coeff)
-            matsubara_freqs.append(nu_plus)
+            coeffs.append([coeff, nu_plus])
+            #just_coeffs.append(coeff)
+            #matsubara_freqs.append(nu_plus)
             nu_minus = gamma_j/2. - 1.j*zeta_j
             coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_minus, temperature, term=-1.)
-            coeffs.append((coeff, nu_minus))
-            just_coeffs.append(coeff)
-            matsubara_freqs.append(nu_minus)
+            coeffs.append([coeff, nu_minus])
+            #just_coeffs.append(coeff)
+            #matsubara_freqs.append(nu_minus)
             
             # add further expansion terms to already saved expansion terms
             for n in range(num_expansion_terms):
                 nu_k = coeffs[n][1]
                 coeff = coeffs[n][0] + UBO_correlation_function_coeffs(omega_j, lambda_j, gamma_j, nu_k, temperature)
-                coeffs[n] = (coeff, nu_k)
-                just_coeffs[n] = coeff
+                coeffs[n] = [coeff, nu_k]
+                #just_coeffs[n] = coeff
             
     # add leading term of Drude spectral density and corresponding cutoff freq
     coeff = OBO_correlation_function_leading_coeff(E_reorg, cutoff_freq, temperature)
-    coeffs.append((coeff, cutoff_freq))
-    just_coeffs.append(coeff)
-    matsubara_freqs.append(cutoff_freq)
+    coeffs.append([coeff, cutoff_freq])
+    #just_coeffs.append(coeff)
+    #matsubara_freqs.append(cutoff_freq)
     
     return np.array(coeffs) # np.array(just_coeffs, dtype='complex'), np.array(matsubara_freqs, dtype='complex') #
 
@@ -423,7 +471,7 @@ def modified_redfield_params(time, reorg_energy, cutoff_freq, temperature, mode_
 '''
 The definitive modified Redfield population transfer rate calculator. Assuming the spectral density on each site is identical...
 '''
-def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):    
+def modified_redfield_rates(evals, evecs, g_site, g_site_dot, g_site_dot_dot, total_site_reorg_energy, temperature, time):
     system_dim = evals.size
     rates = np.zeros((system_dim, system_dim))
     
@@ -460,6 +508,22 @@ def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_
     system_dim = evals.size
     rates = np.zeros((system_dim, system_dim))
     
+    # check evals are in order lowest to highest in energy
+    previous = -np.inf
+    reorder = False
+    for E in evals:
+        if previous > E:
+            reorder = True
+            break
+        previous = E
+    
+    # if not in order then reorder and reassign evals and evecs
+    if reorder:
+        print 'Reordering system eigenvalues and eigenvectors'
+        evals, evecs = utils.sort_evals_evecs(evals, evecs)
+        
+    site_reorg_energies = np.array([site_reorg_energies]).T
+        
     # excitons are labelled from lowest in energy to highest
     for i in range(system_dim):
         for j in range(system_dim):
@@ -471,12 +535,12 @@ def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_
                 # calculate overlaps (c_alpha and c_beta's)
                 c_alphas = np.array([evecs[i]]) # add a second dimension (of 1) to evecs so we can do transpose below
                 c_betas = np.array([evecs[j]])
-                site_reorg_energies = np.array([site_reorg_energies]).T
                 A = c_alphas.T**4
                 B = c_betas.T**4
                 C = c_alphas.T**2 * c_betas.T**2
                 D = c_alphas.T * c_betas.T**3
                 E = c_alphas.T**3 * c_betas.T
+                
                 # calculate reorg energies and line broadening functions
                 lambda_aaaa = np.sum(A * site_reorg_energies)
                 lambda_bbbb = np.sum(B * site_reorg_energies)
@@ -496,22 +560,88 @@ def modified_redfield_rates_general(evals, evecs, g_sites, g_sites_dot, g_sites_
                 # calculate uphill rate using detailed balance
                 rates[j,i] = np.exp(-omega_ij/(utils.KELVIN_TO_WAVENUMS*temperature)) * rates[i,j]
 
+    return rates, evals, evecs # return sorted evals and evecs so we know the labelling of the rates array
+
+'''
+Modified Redfield rate calculator which can cope with different spectral densities on each site and arbitrary ordering of exciton energies.
+'''
+def modified_redfield_rates_general_unordered(evals, evecs, g_sites, g_sites_dot, g_sites_dot_dot, site_reorg_energies, temperature, time):    
+    system_dim = evals.size
+    rates = np.zeros((system_dim, system_dim))
+    
+    '''
+    This line is commented out for a test
+    '''
+    site_reorg_energies = np.array([site_reorg_energies]).T
+        
+    for i in range(system_dim):
+        for j in range(system_dim):
+            if i != j:
+                E_i = evals[i]
+                E_j = evals[j]
+                omega_ij = E_j - E_i
+                if omega_ij > 0:
+                    # calculate overlaps (c_alpha and c_beta's)
+                    c_alphas = np.array([evecs[i]]) # add a second dimension (of 1) to evecs so we can do transpose below
+                    c_betas = np.array([evecs[j]])
+                    
+                    '''
+                    Temporarily including this line here to test code in PSIIRCPhotcellModel 
+                    '''
+                    #site_reorg_energies = np.array([site_reorg_energies]).T
+                    
+                    A = c_alphas.T**4
+                    B = c_betas.T**4
+                    C = c_alphas.T**2 * c_betas.T**2
+                    D = c_alphas.T * c_betas.T**3
+                    E = c_alphas.T**3 * c_betas.T
+                    # calculate reorg energies and line broadening functions
+                    lambda_aaaa = np.sum(A * site_reorg_energies)
+                    lambda_bbbb = np.sum(B * site_reorg_energies)
+                    g_aaaa = np.sum(A * g_sites, axis=0)
+                    g_bbbb = np.sum(B * g_sites, axis=0)
+                    g_bbaa = np.sum(C * g_sites, axis=0)
+                    lambda_bbaa = np.sum(C * site_reorg_energies)
+                    g_dot_dot_baba = np.sum(C * g_sites_dot_dot, axis=0)
+                    g_dot_babb = np.sum(D * g_sites_dot, axis=0)
+                    g_dot_baaa = np.sum(E * g_sites_dot, axis=0)
+                    lambda_babb = np.sum(D * site_reorg_energies)
+                    # calculate integrand
+                    integrand = np.exp(1.j*omega_ij*time - 1.j*(lambda_aaaa + lambda_bbbb - 2.*lambda_bbaa)*time - g_aaaa - g_bbbb + 2.*g_bbaa) \
+                                        * (g_dot_dot_baba - (g_dot_babb - g_dot_baaa + 2.j*lambda_babb)**2)
+                    # perform integration
+                    rates[i,j] = 2. * integrate.simps(np.real(integrand), time)
+                    # calculate uphill rate using detailed balance
+                    rates[j,i] = np.exp(-omega_ij/(utils.KELVIN_TO_WAVENUMS*temperature)) * rates[i,j]
+
     return rates
 
 # site line broadening function, check against other function
+# def site_lbf_ed(time, coeffs):
+#     return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
+    #return (coeffs / matsubara_freqs**2) * (np.exp(-matsubara_freqs*time) + (matsubara_freqs*time) - 1.)
+    
+# uses vectorization with time array    
 def site_lbf_ed(time, coeffs):
-    return np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*t) + (coeff[1]*t) - 1.) for coeff in coeffs]) for t in time], dtype='complex')
-    #return (coeffs / matsubara_freqs**2) * (np.exp(-matsubara_freqs*time) + (matsubara_freqs*time) - 1.) 
+    return np.squeeze(np.array([np.sum([(coeff[0] / coeff[1]**2) * (np.exp(-coeff[1]*time) + (coeff[1]*time) - 1.) for coeff in coeffs], axis=0)], dtype='complex'))
     
 # first differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_ed(time, coeffs):
-    return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
+# def site_lbf_dot_ed(time, coeffs):
+#     return np.array([np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*t)) for coeff in coeffs]) for t in time], dtype='complex')
     #return (coeffs / matsubara_freqs) * (1. - np.exp(-matsubara_freqs*time))
+    
+def site_lbf_dot_ed(time, coeffs):
+    return np.array(np.sum([(coeff[0] / coeff[1]) * (1. - np.exp(-coeff[1]*time)) for coeff in coeffs], axis=0), dtype='complex')
 
 # second differential of site line broadening function, check against numerical differentiation
-def site_lbf_dot_dot_ed(time, coeffs):
-    return np.array([np.sum([coeff[0] * np.exp(-coeff[1]*t) for coeff in coeffs]) for t in time], dtype='complex')
+# def site_lbf_dot_dot_ed(time, coeffs):
+#     return np.array([np.sum([coeff[0] * np.exp(-coeff[1]*t) for coeff in coeffs]) for t in time], dtype='complex')
     #return coeffs * np.exp(-matsubara_freqs*time)
+    
+def site_lbf_dot_dot_ed(time, coeffs):
+    return np.array(np.sum([coeff[0] * np.exp(-coeff[1]*time) for coeff in coeffs], axis=0), dtype='complex')
+
+
 '''
 Calculation of modified Redfield theory rates in same way as Ed has done in Mathematica for simple case of no structured environment and identical 
 spectral density for each site.

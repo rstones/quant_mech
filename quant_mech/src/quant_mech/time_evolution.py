@@ -59,7 +59,7 @@ def liouvillian_time_evolution(init_density_vector, liouvillian, duration, times
         density_vector = np.dot(timestep_operator, density_vector)
         dv_history.append(density_vector)
 
-    return dv_history
+    return np.array(dv_history)
     
     
     

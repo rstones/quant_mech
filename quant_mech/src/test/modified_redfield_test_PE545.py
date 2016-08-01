@@ -8,7 +8,7 @@ import numpy.random as rand
 import matplotlib.pyplot as plt
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
-import quant_mech.time_evolution as te
+import quant_mech.time_utils as te
 import time
 
 rand.seed()

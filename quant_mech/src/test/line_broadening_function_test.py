@@ -71,10 +71,19 @@ def LHCII_mode_params(damping):
 
 time = np.linspace(0,0.1,1000)
 lbf_coeffs = os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20)
-lbf = os.site_lbf(time, lbf_coeffs)
+lbf = os.site_lbf_ed_alt(time, lbf_coeffs)
+
+
 plt.plot(time, np.real(lbf), label=r'$\mathcal{R}$e g(t)')
 plt.plot(time, np.imag(lbf), label=r'$\mathcal{I}$m g(t)')
+
+time2 = np.linspace(0, 0.1, 1000)
+lbf_coeffs2 = os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, LHCII_mode_params(mode_damping), 20)
+lbf2 = os.site_lbf_ed_alt(time2, lbf_coeffs2)
+
+plt.plot(time2, np.real(lbf2), label=r'$\mathcal{R}$e g(t)')
+plt.plot(time2, np.imag(lbf2), label=r'$\mathcal{I}$m g(t)')
+
 plt.xlim(0,0.1)
 plt.legend()
-plt.show()
-        
+plt.show()   

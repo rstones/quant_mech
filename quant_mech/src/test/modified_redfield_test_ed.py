@@ -37,22 +37,25 @@ lbf_coeffs = os.lbf_coeffs(reorg_energy, cutoff_freq, temperature, None, 0)
 g_site = os.site_lbf_ed(time, lbf_coeffs)
 g_site_dot = os.site_lbf_dot_ed(time, lbf_coeffs)
 g_site_dot_dot = os.site_lbf_dot_dot_ed(time, lbf_coeffs)
-scaling = 0.6
+scaling = 1.
 
 for i,V in enumerate(coupling_values):
     print 'calculating rates for coupling ' + str(V)
     rates = []
     for delta_E in delta_E_values:
         evals, evecs = utils.sorted_eig(hamiltonian(delta_E, V))
-        rates.append(os.modified_redfield_rates_general(evals, evecs, np.array([g_site, scaling*g_site]), np.array([g_site_dot,scaling*g_site_dot]), np.array([g_site_dot_dot,scaling*g_site_dot_dot]), np.array([reorg_energy,scaling*reorg_energy]), temperature, time)[0,1])
+        print evals
+        exciton_reorg_energies = np.array([os.exciton_reorg_energy(exciton, [reorg_energy, reorg_energy]) for exciton in evecs])
+        print exciton_reorg_energies
+        rates.append(os.modified_redfield_rates_general(evals, evecs, np.array([g_site, scaling*g_site]), np.array([g_site_dot,scaling*g_site_dot]), np.array([g_site_dot_dot,scaling*g_site_dot_dot]), np.array([reorg_energy,scaling*reorg_energy]), temperature, time)[0][0,1])
         #rates.append(os.MRT_rates(hamiltonian(delta_E, V), np.array([reorg_energy, reorg_energy]), cutoff_freq, temperature, None)[0,1])
     plt.subplot(1, coupling_values.size, i+1)
     rates_data.append(rates)
     plt.loglog(delta_E_values, np.array(rates)*utils.WAVENUMS_TO_INVERSE_PS, label=V)
        
     # plot extracted data from Ed's thesis
-    xdata, ydata = np.loadtxt('../../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
-    plt.loglog(xdata, ydata, color='red')
+#     xdata, ydata = np.loadtxt('../../data/thieved_data'+str(i)+'.txt', delimiter=', ', unpack=True)
+#     plt.loglog(xdata, ydata, color='red')
     #s = interp.UnivariateSpline(xdata, ydata, k=2, s=None)
     #plt.loglog(xdata, s(xdata), color='red')
        

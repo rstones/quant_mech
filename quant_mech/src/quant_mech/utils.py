@@ -37,13 +37,13 @@ def raising_operator(basis_size=2):
     
 def orthog_basis_set(basisSize):
     basis_set = []
-    array = np.zeros((1, basisSize))
+    array = np.zeros(basisSize)
 
     for i in range(0, basisSize):
-        array[0][i] = 1
+        array[i] = 1
         temp_array = array.copy()
-        basis_set.append(temp_array.T)
-        array[0][i] = 0
+        basis_set.append(temp_array)
+        array[i] = 0
 
     return basis_set
 
@@ -223,6 +223,21 @@ def differentiate_function(f, x):
     return result
 
 '''
+Sorts set of evals and evecs in order from lowest to highest energy 
+
+evecs must have evectors defined along rows
+'''
+def sort_evals_evecs(evals, evecs):
+    evals_sorted = np.sort(evals)
+    evecs_sorted = []
+    for i in evals_sorted:
+        for j,v in enumerate(evals):
+            if v == i:
+                evecs_sorted.append(evecs[j])
+                break
+    return np.array(evals_sorted), np.array(evecs_sorted, dtype='complex')
+
+'''
 Returns eigenvalues and eigenvectors of the matrix sorted in ascending order of energy
 
 Note: Eigenvectors are returned along the rows of the output array in contrast to in columns
@@ -231,14 +246,7 @@ calculations.
 '''
 def sorted_eig(M):
     evals, evecs = np.linalg.eig(M)
-    evals_sorted = np.sort(evals)
-    evecs_sorted = []
-    for i in evals_sorted:
-        for j,v in enumerate(evals):
-            if v == i:
-                evecs_sorted.append(evecs.T[j])
-                break
-    return np.array(evals_sorted), np.array(evecs_sorted, dtype='complex')
+    return sort_evals_evecs(evals, evecs.T) # pass transpose of evecs as sort_evals_evecs expecting evectors defined along rows
 
 '''
 Returns Hamiltonian for a quantum harmonic oscillator
@@ -251,4 +259,4 @@ def vibrational_hamiltonian(freq, basis_size):
     
     
 def detailed_balance_backward_rate(forward_rate, omega, temperature):
-    return np.exp(-omega / KELVIN_TO_WAVENUMS*temperature) * forward_rate
+    return np.exp(-omega / (KELVIN_TO_WAVENUMS*temperature)) * forward_rate

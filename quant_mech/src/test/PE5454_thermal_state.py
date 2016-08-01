@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import quant_mech.utils as utils
 import quant_mech.open_systems as os
-import quant_mech.time_evolution as te
+import quant_mech.time_utils as te
 
 # basis { PEB_50/61C, DBV_A, DVB_B, PEB_82C, PEB_158C, PEB_50/61D, PEB_82D, PEB_158D }
 site_energies = np.array([18532., 18008., 17973., 18040., 18711., 19574., 19050., 18960.]) # no reorganisation shift included
