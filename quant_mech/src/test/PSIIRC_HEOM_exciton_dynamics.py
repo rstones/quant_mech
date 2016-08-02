@@ -31,9 +31,9 @@ couplings = np.array([[0,150.,-42.,-55.,-6.,17.,0,0],
 system_hamiltonian = np.diag(average_site_CT_energies) + couplings + couplings.T
 system_hamiltonian = system_hamiltonian[:6,:6]
 reorg_energy = 35.
-cutoff_freq = 40.
+cutoff_freq = 300.
 temperature = 300.
-mode_params = [(342., 342.*0.4, 100.)]
+mode_params = []#[(342., 342.*0.4, 100.)]
 hs = HierarchySolver(system_hamiltonian, reorg_energy, cutoff_freq, temperature, underdamped_mode_params=mode_params)
 
 init_state = np.zeros(system_hamiltonian.shape)
@@ -42,7 +42,7 @@ init_state = np.dot(hs.system_evectors, np.dot(init_state, hs.system_evectors.T)
 
 #dm_history, time = hs.converged_time_evolution(init_state, 6, 6, time_step, duration)
 hs.init_system_dm = init_state
-hs.truncation_level = 6
+hs.truncation_level = 8
 dm_history, time = hs.calculate_time_evolution(time_step, duration)
 exciton_dm_history = hs.transform_to_exciton_basis(dm_history)
 
@@ -63,8 +63,8 @@ print 'Calculation took ' + str(tutils.duration(end_time, start_time))
 # print exciton_steady_state
 
 print 'Saving data...'
-np.savez('../../data/PSIIRC_mode_HEOM_6_tiers_data.npz', dm_history=dm_history, exciton_dm_history=exciton_dm_history, time=time, system_hamiltonian=system_hamiltonian, \
-                                                reorg_energy=reorg_energy, cutoff_freq=cutoff_freq, temperature=temperature)
+np.savez('../../data/PSIIRC_HEOM_large_cutoff_freq_data.npz', dm_history=dm_history, exciton_dm_history=exciton_dm_history, time=time, system_hamiltonian=system_hamiltonian, \
+                                                reorg_energy=reorg_energy, cutoff_freq=cutoff_freq, temperature=temperature, mode_params=mode_params)
 
 # colours = ['b', 'g', 'r', 'c', 'm', 'y']
 # # for i in range(system_hamiltonian.shape[0]):

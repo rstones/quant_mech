@@ -60,8 +60,10 @@ class HierarchySolver(object):
         # calculate coefficients of operators coupling to lower tiers and fill in vectors
         self.thetax_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetao_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
+        self.scaling_factors = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetax_coeffs[:self.system_dimension].fill(self.drude_Vx_coeff())
         self.thetao_coeffs[:self.system_dimension].fill(self.drude_Vo_coeff())
+        self.scaling_factors[:self.system_dimension].fill(self.drude_scaling_factor())
         for i in range(self.num_modes):
             freq = self.underdamped_mode_params[i][0]
             reorg_energy = self.underdamped_mode_params[i][1]
@@ -70,6 +72,8 @@ class HierarchySolver(object):
             self.thetax_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_Vx_coeff(freq, reorg_energy, damping, 1.))
             self.thetao_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_Vo_coeff(freq, reorg_energy, damping, -1.))
             self.thetao_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_Vo_coeff(freq, reorg_energy, damping, 1.))
+            self.scaling_factors[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, -1.))
+            self.scaling_factors[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, 1.))
         # still need to do Matsubara freqs for this
         
         self.jump_operators = jump_operators
@@ -84,6 +88,12 @@ class HierarchySolver(object):
     def drude_Vo_coeff(self):
         return self.drude_reorg_energy*self.drude_cutoff
     
+    '''
+    Absolute value of the leading coefficient from exponential expansion of the Drude spectral density 
+    '''
+    def drude_scaling_factor(self):
+        return np.abs(self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) + 1.j))
+    
     def mode_Vx_coeff(self, freq, reorg_energy, damping, plus_or_minus):
         zeta = np.sqrt(freq**2 - (damping**2/4.))
         return -plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) / np.tanh((1.j*self.beta/4.)*(damping + plus_or_minus*2.j*zeta))
@@ -91,6 +101,14 @@ class HierarchySolver(object):
     def mode_Vo_coeff(self, freq, reorg_energy, damping, plus_or_minus):
         zeta = np.sqrt(freq**2 - (damping**2/4.))
         return plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta))
+    
+    '''
+    Absolute value of the leading coefficient from exponential expansion of Brownian oscillator spectral density
+    '''
+    def mode_scaling_factor(self, freq, reorg_energy, damping, plus_or_minus):
+        zeta = np.sqrt(freq**2 - (damping**2/4.))
+        nu = damping/2. + plus_or_minus*1.j*zeta
+        return np.abs(plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j))
         
     def pascals_triangle(self):
         return la.pascal(self.num_aux_dm_indices if self.num_aux_dm_indices > self.truncation_level else self.truncation_level)
@@ -152,8 +170,10 @@ class HierarchySolver(object):
 
         hm -= sp.kron(np.diag(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         
+        abs_c0 = np.abs(self.drude_cutoff*self.drude_reorg_energy*(1./np.tan(self.beta*self.drude_cutoff/2.) - 1.j))
+        
         # off diagonal elements
-        unit_vectors = utils.orthog_basis_set(self.num_aux_dm_indices)
+        unit_vectors = self.generate_orthogonal_basis_set(self.num_aux_dm_indices)
         dm_per_tier = self.dm_per_tier()
         for n in range(self.num_aux_dm_indices):
 
@@ -172,7 +192,7 @@ class HierarchySolver(object):
                         temp_dm = n_vec + unit_vectors[n]
                         if self.row_in_array(temp_dm, upper_hierarchy):
                             idx = self.row_index_in_array(temp_dm, upper_hierarchy) + higher_tier_offset
-                            A1[current_tier_offset+i, idx] = 1.j
+                            A1[current_tier_offset+i, idx] = 1.j * np.sqrt((n_vec[n]+1) * self.scaling_factors[n])
 
                     # coupling to lower tiers
                     if k > 0:
@@ -180,8 +200,10 @@ class HierarchySolver(object):
                         temp_dm = n_vec - unit_vectors[n]
                         if self.row_in_array(temp_dm, lower_hierarchy):
                             idx = self.row_index_in_array(temp_dm, lower_hierarchy) + lower_tier_offset
-                            A1[current_tier_offset+i,idx] = n_vec[n] * np.dot(unit_vectors[n], self.thetax_coeffs)
-                            A2[current_tier_offset+i,idx] = n_vec[n] * np.dot(unit_vectors[n], self.thetao_coeffs)
+#                             A1[current_tier_offset+i,idx] = n_vec[n] * np.dot(unit_vectors[n], self.thetax_coeffs)
+#                             A2[current_tier_offset+i,idx] = n_vec[n] * np.dot(unit_vectors[n], self.thetao_coeffs)
+                            A1[current_tier_offset+i,idx] = np.sqrt(n_vec[n] / self.scaling_factors[n]) * self.thetax_coeffs[n]
+                            A2[current_tier_offset+i,idx] = np.sqrt(n_vec[n] / self.scaling_factors[n]) * self.thetao_coeffs[n]
                         
             hm += sp.kron(A1, self.Vx_operators[n%self.system_dimension]) + sp.kron(A2, self.Vo_operators[n%self.system_dimension])
 
@@ -192,6 +214,9 @@ class HierarchySolver(object):
     
     def row_index_in_array(self, row, array):
         return np.nonzero(np.all(array==row, axis=1))[0][0]
+    
+    def generate_orthogonal_basis_set(self, basis_size):
+        return np.eye(basis_size)
     
     def extract_system_density_matrix(self, hierarchy_vector):
         sys_dm = hierarchy_vector[:self.system_dimension**2]
@@ -317,7 +342,7 @@ class HierarchySolver(object):
     
     def init_steady_state_vector(self, init_state, time_step, duration, params_in_wavenums=True):
         
-        hierarchy_matrix = self.construct_hierarchy_matrix_BO()
+        hierarchy_matrix = self.construct_hierarchy_matrix_fast()
 #         print "Memory usage of hierarchy matrix: " \
 #                     + str((hierarchy_matrix.data.nbytes+hierarchy_matrix.indptr.nbytes+hierarchy_matrix.indices.nbytes) / 1.e9) \
 #                     + "Gb"
@@ -343,18 +368,13 @@ class HierarchySolver(object):
         return current_state
         
     def hierarchy_steady_state(self):
-        
-        init_state = np.zeros((self.system_dimension, self.system_dimension))
-        init_state[0,0] = 1.
-        init_vector = self.init_steady_state_vector(init_state, 0.01, 5.)
-        
-        hierarchy_matrix = self.construct_hierarchy_matrix()
-        #evalues,evectors =la.eig(hierarchy_matrix.todense())
-        evalues,evectors = spla.eigs(hierarchy_matrix, k=4, sigma=0, which='LM', ncv=100, maxiter=5000, tol=1.e-2, v0=init_vector) # using eigs in shift-invert mode by setting sigma=0 and which='LM'
-        # alternative settings to find lowest evalues are sigma=None and which='SM' with increased tolerance and max iterations (this is meant to be slower
-        # and less accurate though)
-        #evalues,evectors = spla.eigs(hierarchy_matrix, k=3, which='SM', tol=1.e-3)
-        return evectors.T[self.find_nearest_index(evalues, 0)]
+        hierarchy_matrix = self.construct_hierarchy_matrix_fast()
+        init_state = self.construct_init_vector()
+        evalue, steady_state = spla.eigs(hierarchy_matrix.tocsc(), k=1, sigma=0, which='LM', v0=init_state) # using eigs in shift-invert mode by setting sigma=0 and which='LM'
+        return steady_state
+    
+    def normalised_steady_state(self):
+        return self.normalise_steady_state(self.extract_system_density_matrix(self.hierarchy_steady_state()))
     
     def normalise_steady_state(self, density_matrix):
         try:
