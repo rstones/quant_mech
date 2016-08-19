@@ -97,7 +97,7 @@ jump_operators[1] = np.dot(site_exciton_transform, np.dot(np.array([[0, 1., 0, 0
 for i in range(1,7):
     op_forward = np.zeros((10,10))
     op_forward[7,i] = 1.
-    op_foward = np.dot(site_exciton_transform, np.dot(op_forward, site_exciton_transform.T))
+    op_forward = np.dot(site_exciton_transform, np.dot(op_forward, site_exciton_transform.T))
     jump_operators[2*i] = op_forward
     op_backward = np.zeros((10,10))
     op_backward[i,7] = 1.
@@ -248,9 +248,8 @@ empty_ground_rate = 25.e-3 * utils.EV_TO_WAVENUMS
 jump_rates = np.array([excitation_rate, deexcitation_rate])
 for i in range(6):
     jump_rates = np.append(jump_rates, [forward_exciton_CT_rates[i], backward_exciton_CT_rates[i]])
-jump_rates[2:] *= 0.1
+#jump_rates[2:] *= 0.1
 jump_rates = np.append(jump_rates, [CT1_CT2_rate, CT2_CT1_rate, CT2_empty_rate, empty_ground_rate])
-
 
 single_mode_params = []#[(342., 342.*0.4, 100.)]
 

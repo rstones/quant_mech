@@ -4,6 +4,7 @@ Created on 21 Mar 2014
 @author: rstones
 '''
 import numpy as np
+import numba
 import scipy.linalg as la
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
@@ -12,6 +13,7 @@ from scipy.integrate import ode
 import quant_mech.open_systems as os
 import quant_mech.utils as utils
 import quant_mech.time_utils as tutils
+from quant_mech.hierarchy_solver_numba_functions import higher_lower_tier_coupling
 
 class HierarchySolver(object):
     '''
@@ -30,8 +32,7 @@ class HierarchySolver(object):
         self.drude_cutoff = drude_cutoff
         self.temperature = temperature
         self.beta = 1. / (utils.KELVIN_TO_WAVENUMS * self.temperature)
-        self.omega_0 = 0 # this is something to do with Matsubara freqs when I need to include modes?
-        self.system_hamiltonian = hamiltonian #np.array([[100.,20.],[20.,0]])
+        self.system_hamiltonian = hamiltonian
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
         
@@ -42,7 +43,7 @@ class HierarchySolver(object):
         self.drude_zeroth_order_freqs.fill(self.drude_cutoff)
         
         # underdamped_mode_params should be a list of tuples
-        # each tuple having frequency, reorg energy and damping for each mode in that order
+        # each tuple having frequency, Huang-Rhys factor and damping for each mode in that order
         self.underdamped_mode_params = underdamped_mode_params
         self.num_modes = len(self.underdamped_mode_params)
         if np.any(self.underdamped_mode_params):
@@ -66,7 +67,7 @@ class HierarchySolver(object):
         self.scaling_factors[:self.system_dimension].fill(self.drude_scaling_factor())
         for i in range(self.num_modes):
             freq = self.underdamped_mode_params[i][0]
-            reorg_energy = self.underdamped_mode_params[i][1]
+            reorg_energy = self.underdamped_mode_params[i][0]*self.underdamped_mode_params[i][1]
             damping = self.underdamped_mode_params[i][2]
             self.thetax_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_Vx_coeff(freq, reorg_energy, damping, -1.))
             self.thetax_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_Vx_coeff(freq, reorg_energy, damping, 1.))
@@ -154,7 +155,7 @@ class HierarchySolver(object):
         hm = sp.kron(sp.eye(self.number_density_matrices()), self.liouvillian())
         
         # n.gamma bit on diagonal
-        n_vectors, n_hierarchy = self.generate_n_vectors_BO() # need to change generate_n_vectors_BO to return array in this form
+        n_vectors, n_hierarchy, tier_indices = self.generate_n_vectors_BO() # need to change generate_n_vectors_BO to return array in this form
         diag_stuff = np.zeros(n_vectors.shape)
         diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
         coeff_vector = self.drude_zeroth_order_freqs
@@ -209,6 +210,37 @@ class HierarchySolver(object):
 
         return hm
     
+    
+        
+    def construct_hierarchy_matrix_numba(self):
+        # liouvillian + other diagonal parts that are same for all tiers
+        hm = sp.kron(sp.eye(self.number_density_matrices()), self.liouvillian())
+        
+        # n.gamma bit on diagonal
+        n_vectors, n_hierarchy, tier_indices = self.generate_n_vectors_BO() # need to change generate_n_vectors_BO to return array in this form
+        diag_stuff = np.zeros(n_vectors.shape)
+        diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
+        coeff_vector = self.drude_zeroth_order_freqs
+        if self.num_modes:
+            for i in range(self.num_modes):
+                neg_mode_start_idx = self.system_dimension*(1+2*i)
+                pos_mode_start_idx = self.system_dimension*(2+2*i)
+                diag_stuff[:,neg_mode_start_idx:pos_mode_start_idx] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] + n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension]
+                diag_stuff[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] - n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension]
+                # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
+                coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
+                coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
+
+        hm -= sp.kron(np.diag(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
+        
+        # off diagonal elements
+        unit_vectors = self.generate_orthogonal_basis_set(self.num_aux_dm_indices)
+        A1s,A2s = higher_lower_tier_coupling(self.number_density_matrices(), self.num_aux_dm_indices, self.truncation_level, n_vectors, tier_indices, self.dm_per_tier(), unit_vectors, self.scaling_factors, self.thetax_coeffs, self.thetao_coeffs)
+        for n in range(self.num_aux_dm_indices):                
+            hm += sp.kron(A1s[n], self.Vx_operators[n%self.system_dimension]) + sp.kron(A2s[n], self.Vo_operators[n%self.system_dimension])
+
+        return hm
+    
     def row_in_array(self, row, array):
         return np.any(np.all(array==row, axis=1))
     
@@ -225,7 +257,7 @@ class HierarchySolver(object):
     
     def calculate_time_evolution(self, time_step, duration, params_in_wavenums=True):
         
-        hierarchy_matrix = self.construct_hierarchy_matrix_fast() #self.construct_hierarchy_matrix_BO()#
+        hierarchy_matrix = self.construct_hierarchy_matrix_fast()#self.construct_hierarchy_matrix_numba()# #self.construct_hierarchy_matrix_BO()#
 #         print "Memory usage of hierarchy matrix: " \
 #                     + str((hierarchy_matrix.data.nbytes+hierarchy_matrix.indptr.nbytes+hierarchy_matrix.indices.nbytes) / 1.e9) \
 #                     + "Gb"
@@ -371,6 +403,7 @@ class HierarchySolver(object):
         hierarchy_matrix = self.construct_hierarchy_matrix_fast()
         init_state = self.construct_init_vector()
         evalue, steady_state = spla.eigs(hierarchy_matrix.tocsc(), k=1, sigma=0, which='LM', v0=init_state) # using eigs in shift-invert mode by setting sigma=0 and which='LM'
+        print 'calculated steady state'
         return steady_state
     
     def normalised_steady_state(self):
@@ -508,14 +541,19 @@ class HierarchySolver(object):
     
     '''
     Change to return n vectors as a numpy array, refactor rest to code to deal with this
+    
+    numbasize this function
     '''
     def generate_n_vectors_BO(self):
         
         n_hierarchy = {0:[np.zeros(self.num_aux_dm_indices)]}
         n_vectors = [np.zeros(self.num_aux_dm_indices)]
+        tier_indices = [0]
         next_level = 1
+        tier_idx = 1
         while next_level < self.truncation_level:
             n_hierarchy[next_level] = []
+            tier_indices.append(tier_idx)
             for j in n_hierarchy[next_level-1]:
                 for k in range(j.size):
                     j[k] += 1.
@@ -523,10 +561,11 @@ class HierarchySolver(object):
                         n_vec = np.copy(j)
                         n_hierarchy[next_level].append(n_vec)
                         n_vectors.append(n_vec)
+                        tier_idx += 1
                     j[k] -= 1.
             next_level += 1
-                
-        return np.array(n_vectors), n_hierarchy
+            
+        return np.array(n_vectors), n_hierarchy, np.array(tier_indices)
     
     def generate_n_vectors_test(self):
         
@@ -585,7 +624,7 @@ class HierarchySolver(object):
     
     def theta_BO(self, k, mode_params, plus_or_minus):
         freq = mode_params[0]
-        reorg_energy = mode_params[1]
+        reorg_energy = mode_params[0]*mode_params[1]
         gamma = mode_params[2]
         zeta = np.sqrt(freq**2 - (gamma**2 / 4.))
         A = 1. / np.tanh((1.j*self.beta/4.)*(gamma + plus_or_minus*2.j*zeta))

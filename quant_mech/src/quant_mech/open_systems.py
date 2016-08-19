@@ -323,32 +323,34 @@ def lbf_coeffs(E_reorg, cutoff_freq, temperature, high_energy_params, num_expans
         coeffs.append([coeff, nu_k])
         #just_coeffs.append(coeff)
         #matsubara_freqs.append(nu_k)
-    
-    if high_energy_params is not None and high_energy_params.any():
-        for mode in high_energy_params:
-            omega_j = mode[0]
-            S_j = mode[1]
-            gamma_j = mode[2]
-            lambda_j = omega_j * S_j
-            # add two leading terms of correlation function expansion
-            zeta_j = np.sqrt(omega_j**2 - (gamma_j**2/4.))
-            nu_plus = gamma_j/2. + 1.j*zeta_j
-            coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_plus, temperature, term=1.)
-            coeffs.append([coeff, nu_plus])
-            #just_coeffs.append(coeff)
-            #matsubara_freqs.append(nu_plus)
-            nu_minus = gamma_j/2. - 1.j*zeta_j
-            coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_minus, temperature, term=-1.)
-            coeffs.append([coeff, nu_minus])
-            #just_coeffs.append(coeff)
-            #matsubara_freqs.append(nu_minus)
-            
-            # add further expansion terms to already saved expansion terms
-            for n in range(num_expansion_terms):
-                nu_k = coeffs[n][1]
-                coeff = coeffs[n][0] + UBO_correlation_function_coeffs(omega_j, lambda_j, gamma_j, nu_k, temperature)
-                coeffs[n] = [coeff, nu_k]
-                #just_coeffs[n] = coeff
+    if high_energy_params is not None:
+        if isinstance(high_energy_params, list):
+            high_energy_params = np.array(high_energy_params)
+        if high_energy_params.any():
+            for mode in high_energy_params:
+                omega_j = mode[0]
+                S_j = mode[1]
+                gamma_j = mode[2]
+                lambda_j = omega_j * S_j
+                # add two leading terms of correlation function expansion
+                zeta_j = np.sqrt(omega_j**2 - (gamma_j**2/4.))
+                nu_plus = gamma_j/2. + 1.j*zeta_j
+                coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_plus, temperature, term=1.)
+                coeffs.append([coeff, nu_plus])
+                #just_coeffs.append(coeff)
+                #matsubara_freqs.append(nu_plus)
+                nu_minus = gamma_j/2. - 1.j*zeta_j
+                coeff = UBO_correlation_function_leading_coeff(omega_j, lambda_j, gamma_j, zeta_j, nu_minus, temperature, term=-1.)
+                coeffs.append([coeff, nu_minus])
+                #just_coeffs.append(coeff)
+                #matsubara_freqs.append(nu_minus)
+                
+                # add further expansion terms to already saved expansion terms
+                for n in range(num_expansion_terms):
+                    nu_k = coeffs[n][1]
+                    coeff = coeffs[n][0] + UBO_correlation_function_coeffs(omega_j, lambda_j, gamma_j, nu_k, temperature)
+                    coeffs[n] = [coeff, nu_k]
+                    #just_coeffs[n] = coeff
             
     # add leading term of Drude spectral density and corresponding cutoff freq
     coeff = OBO_correlation_function_leading_coeff(E_reorg, cutoff_freq, temperature)
@@ -902,5 +904,8 @@ def marcus_rate(coupling, temperature, reorg_energy, driving_force):
     k_BT_wavenums = utils.KELVIN_TO_WAVENUMS * temperature
     return np.abs(coupling)**2 * np.sqrt(np.pi/(k_BT_wavenums*reorg_energy)) \
                     * np.exp(-(driving_force - reorg_energy)**2/(4.*reorg_energy*k_BT_wavenums))
+                    
+def check_detailed_balance(forward_rate, backward_rate, energy_gap, temperature, accuracy=0.001):
+    return np.abs(forward_rate - np.exp(energy_gap/(utils.KELVIN_TO_WAVENUMS*temperature))*backward_rate) < accuracy
 
     
