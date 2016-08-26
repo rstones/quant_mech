@@ -13,7 +13,8 @@ from scipy.integrate import ode
 import quant_mech.open_systems as os
 import quant_mech.utils as utils
 import quant_mech.time_utils as tutils
-from quant_mech.hierarchy_solver_numba_functions import higher_lower_tier_coupling
+from quant_mech.hierarchy_solver_numba_functions import higher_lower_tier_coupling,\
+    row_in_array
 
 class HierarchySolver(object):
     '''
@@ -210,14 +211,43 @@ class HierarchySolver(object):
 
         return hm
     
-    
+    def construct_hierarchy_matrix_super_fast(self):
+        hierarchy = {0: [np.zeros(self.num_aux_dm_indices, dtype=np.int64)]}
+        n_vectors = [np.zeros(self.num_aux_dm_indices)]
         
-    def construct_hierarchy_matrix_numba(self):
-        # liouvillian + other diagonal parts that are same for all tiers
-        hm = sp.kron(sp.eye(self.number_density_matrices()), self.liouvillian())
+        tier_start_indices = []
+        dm_per_tier = self.dm_per_tier()
+        for i in range(dm_per_tier.size+1):
+            tier_start_indices.append(np.sum(dm_per_tier[:i]))
+        
+        num_dms = self.number_density_matrices()
+        
+        higher_coupling_matrices = np.zeros((self.num_aux_dm_indices, num_dms, num_dms), dtype='complex64') # using sparse matrices here was slower as you can only have 2D sparse
+        lower_coupling_matrices = np.zeros((self.num_aux_dm_indices, num_dms, num_dms), dtype='complex64')
+        next_level = 1
+        while next_level < self.truncation_level:
+            hierarchy[next_level] = []
+            for i,vec in enumerate(hierarchy[next_level-1]):
+                for n in range(vec.size):
+                    vec[n] += 1
+                    if not self.row_in_array(vec, np.array(hierarchy[next_level])): # add to next level
+                        new_vec = np.copy(vec)
+                        hierarchy[next_level].append(new_vec)
+                        n_vectors.append(new_vec)
+                        current_tier_vec_idx = len(hierarchy[next_level])-1
+                    else: # get index in current level
+                        current_tier_vec_idx = self.index_of_array_in_list(vec, np.array(hierarchy[next_level]))#vec_index_in_list(vec, hierarchy[next_level])
+                    lower_coupling_matrices[n][tier_start_indices[next_level]+current_tier_vec_idx, tier_start_indices[next_level-1]+i] = np.sqrt(vec[n] / self.scaling_factors[n])
+                    vec[n] -= 1
+                    higher_coupling_matrices[n][tier_start_indices[next_level-1]+i, tier_start_indices[next_level]+current_tier_vec_idx] = np.sqrt((vec[n]+1)*self.scaling_factors[n])
+            next_level += 1
+        
+        # now build the hierarchy matrix
+        # diag bits
+        hm = sp.kron(sp.eye(num_dms), self.liouvillian())
         
         # n.gamma bit on diagonal
-        n_vectors, n_hierarchy, tier_indices = self.generate_n_vectors_BO() # need to change generate_n_vectors_BO to return array in this form
+        n_vectors = np.array(n_vectors)
         diag_stuff = np.zeros(n_vectors.shape)
         diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
         coeff_vector = self.drude_zeroth_order_freqs
@@ -230,22 +260,27 @@ class HierarchySolver(object):
                 # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
-
+        
         hm -= sp.kron(np.diag(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         
-        # off diagonal elements
-        unit_vectors = self.generate_orthogonal_basis_set(self.num_aux_dm_indices)
-        A1s,A2s = higher_lower_tier_coupling(self.number_density_matrices(), self.num_aux_dm_indices, self.truncation_level, n_vectors, tier_indices, self.dm_per_tier(), unit_vectors, self.scaling_factors, self.thetax_coeffs, self.thetao_coeffs)
-        for n in range(self.num_aux_dm_indices):                
-            hm += sp.kron(A1s[n], self.Vx_operators[n%self.system_dimension]) + sp.kron(A2s[n], self.Vo_operators[n%self.system_dimension])
-
+        # off diag bits
+        for n in range(self.num_aux_dm_indices):
+            hm += sp.kron((higher_coupling_matrices[n] * 1.j) + (lower_coupling_matrices[n] * self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
+                            + sp.kron(lower_coupling_matrices[n] * self.thetao_coeffs[n], self.Vo_operators[n%self.system_dimension])
+        
         return hm
     
     def row_in_array(self, row, array):
-        return np.any(np.all(array==row, axis=1))
+        if array.size > 0:
+            return np.any(np.all(array==row, axis=1))
+        else:
+            return False
     
     def row_index_in_array(self, row, array):
-        return np.nonzero(np.all(array==row, axis=1))[0][0]
+        if array.size > 0:
+            return np.nonzero(np.all(array==row, axis=1))[0][0]
+        else:
+            return False
     
     def generate_orthogonal_basis_set(self, basis_size):
         return np.eye(basis_size)
@@ -257,10 +292,7 @@ class HierarchySolver(object):
     
     def calculate_time_evolution(self, time_step, duration, params_in_wavenums=True):
         
-        hierarchy_matrix = self.construct_hierarchy_matrix_fast()#self.construct_hierarchy_matrix_numba()# #self.construct_hierarchy_matrix_BO()#
-#         print "Memory usage of hierarchy matrix: " \
-#                     + str((hierarchy_matrix.data.nbytes+hierarchy_matrix.indptr.nbytes+hierarchy_matrix.indices.nbytes) / 1.e9) \
-#                     + "Gb"
+        hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()#self.construct_hierarchy_matrix_fast()#
         
         if params_in_wavenums:
             hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
@@ -540,7 +572,7 @@ class HierarchySolver(object):
         return n_vectors
     
     '''
-    Change to return n vectors as a numpy array, refactor rest to code to deal with this
+    Change to return n vectors as a numpy array, refactor rest of code to deal with this
     
     numbasize this function
     '''
