@@ -13,8 +13,7 @@ from scipy.integrate import ode
 import quant_mech.open_systems as os
 import quant_mech.utils as utils
 import quant_mech.time_utils as tutils
-from quant_mech.hierarchy_solver_numba_functions import higher_lower_tier_coupling,\
-    row_in_array
+from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings
 
 class HierarchySolver(object):
     '''
@@ -111,12 +110,15 @@ class HierarchySolver(object):
         zeta = np.sqrt(freq**2 - (damping**2/4.))
         nu = damping/2. + plus_or_minus*1.j*zeta
         return np.abs(plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j))
-        
+
     def pascals_triangle(self):
-        return la.pascal(self.num_aux_dm_indices if self.num_aux_dm_indices > self.truncation_level else self.truncation_level)
+        return la.pascal(self.num_aux_dm_indices+1 if self.num_aux_dm_indices > self.truncation_level else self.truncation_level+1)
     
+    '''
+    Get dm for one extra tier to make indexing of hierarchy easier when keeping them in an array and not a dict
+    '''
     def dm_per_tier(self):
-        return self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level]
+        return self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level+1]
     
         '''
         Construct Pascal's triangle in matrix form
@@ -131,7 +133,6 @@ class HierarchySolver(object):
         
     # constructs initial vector from initial system density matrix
     def construct_init_vector(self):
-        print 'Constructing initial hierarchy vector'
         init_vector = np.zeros(self.M_dimension(), dtype='complex64')
         init_vector[:self.system_dimension**2] = self.init_system_dm.flatten()
         return init_vector
@@ -172,8 +173,6 @@ class HierarchySolver(object):
 
         hm -= sp.kron(np.diag(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         
-        abs_c0 = np.abs(self.drude_cutoff*self.drude_reorg_energy*(1./np.tan(self.beta*self.drude_cutoff/2.) - 1.j))
-        
         # off diagonal elements
         unit_vectors = self.generate_orthogonal_basis_set(self.num_aux_dm_indices)
         dm_per_tier = self.dm_per_tier()
@@ -211,43 +210,17 @@ class HierarchySolver(object):
 
         return hm
     
-    def construct_hierarchy_matrix_super_fast(self):
-        hierarchy = {0: [np.zeros(self.num_aux_dm_indices, dtype=np.int64)]}
-        n_vectors = [np.zeros(self.num_aux_dm_indices)]
-        
-        tier_start_indices = []
-        dm_per_tier = self.dm_per_tier()
-        for i in range(dm_per_tier.size+1):
-            tier_start_indices.append(np.sum(dm_per_tier[:i]))
-        
+    def construct_hierarchy_matrix_super_fast(self):        
         num_dms = self.number_density_matrices()
-        
-        higher_coupling_matrices = np.zeros((self.num_aux_dm_indices, num_dms, num_dms), dtype='complex64') # using sparse matrices here was slower as you can only have 2D sparse
-        lower_coupling_matrices = np.zeros((self.num_aux_dm_indices, num_dms, num_dms), dtype='complex64')
-        next_level = 1
-        while next_level < self.truncation_level:
-            hierarchy[next_level] = []
-            for i,vec in enumerate(hierarchy[next_level-1]):
-                for n in range(vec.size):
-                    vec[n] += 1
-                    if not self.row_in_array(vec, np.array(hierarchy[next_level])): # add to next level
-                        new_vec = np.copy(vec)
-                        hierarchy[next_level].append(new_vec)
-                        n_vectors.append(new_vec)
-                        current_tier_vec_idx = len(hierarchy[next_level])-1
-                    else: # get index in current level
-                        current_tier_vec_idx = self.index_of_array_in_list(vec, np.array(hierarchy[next_level]))#vec_index_in_list(vec, hierarchy[next_level])
-                    lower_coupling_matrices[n][tier_start_indices[next_level]+current_tier_vec_idx, tier_start_indices[next_level-1]+i] = np.sqrt(vec[n] / self.scaling_factors[n])
-                    vec[n] -= 1
-                    higher_coupling_matrices[n][tier_start_indices[next_level-1]+i, tier_start_indices[next_level]+current_tier_vec_idx] = np.sqrt((vec[n]+1)*self.scaling_factors[n])
-            next_level += 1
+        n_vectors, higher_coupling_matrices, lower_coupling_matrices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                                                                                                   self.dm_per_tier(), self.scaling_factors)
         
         # now build the hierarchy matrix
         # diag bits
         hm = sp.kron(sp.eye(num_dms), self.liouvillian())
         
         # n.gamma bit on diagonal
-        n_vectors = np.array(n_vectors)
+        #n_vectors = np.array(n_vectors)
         diag_stuff = np.zeros(n_vectors.shape)
         diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
         coeff_vector = self.drude_zeroth_order_freqs
@@ -292,7 +265,7 @@ class HierarchySolver(object):
     
     def calculate_time_evolution(self, time_step, duration, params_in_wavenums=True):
         
-        hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()#self.construct_hierarchy_matrix_fast()#
+        hierarchy_matrix = self.construct_hierarchy_matrix_super_fast() #self.construct_hierarchy_matrix_fast()#
         
         if params_in_wavenums:
             hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
