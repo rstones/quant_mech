@@ -178,8 +178,8 @@ class HierarchySolver(object):
         dm_per_tier = self.dm_per_tier()
         for n in range(self.num_aux_dm_indices):
 
-            A1 = sp.lil_matrix((self.number_density_matrices(), self.number_density_matrices()), dtype='complex64')
-            A2 = sp.lil_matrix((self.number_density_matrices(), self.number_density_matrices()), dtype='complex64')
+            A1 = sp.csr_matrix((self.number_density_matrices(), self.number_density_matrices()), dtype='complex64')
+            A2 = sp.csr_matrix((self.number_density_matrices(), self.number_density_matrices()), dtype='complex64')
             
             for k in n_hierarchy.keys():
                 current_tier_offset = np.sum(dm_per_tier[:k])
@@ -210,9 +210,12 @@ class HierarchySolver(object):
 
         return hm
     
-    def construct_hierarchy_matrix_super_fast(self):        
+    def construct_hierarchy_matrix_super_fast(self):
         num_dms = self.number_density_matrices()
-        n_vectors, higher_coupling_matrices, lower_coupling_matrices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+#         n_vectors, higher_coupling_matrices, lower_coupling_matrices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+#                                                                                                    self.dm_per_tier(), self.scaling_factors)
+        n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
+                            lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
                                                                                                    self.dm_per_tier(), self.scaling_factors)
         
         # now build the hierarchy matrix
@@ -234,12 +237,16 @@ class HierarchySolver(object):
                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
         
-        hm -= sp.kron(np.diag(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
+        hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         
         # off diag bits
         for n in range(self.num_aux_dm_indices):
-            hm += sp.kron((higher_coupling_matrices[n] * 1.j) + (lower_coupling_matrices[n] * self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
-                            + sp.kron(lower_coupling_matrices[n] * self.thetao_coeffs[n], self.Vo_operators[n%self.system_dimension])
+#             hm += sp.kron((higher_coupling_matrices[n] * 1.j) + (lower_coupling_matrices[n] * self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
+#                             + sp.kron(lower_coupling_matrices[n] * self.thetao_coeffs[n], self.Vo_operators[n%self.system_dimension])
+            higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
+            lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
+            hm += sp.kron(higher_coupling_matrix.multiply(1.j) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
+                            + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n%self.system_dimension])
         
         return hm
     

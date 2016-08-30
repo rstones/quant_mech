@@ -32,7 +32,7 @@ init_state = np.array([[1.,0],[0,0]])
 #init_state = np.dot(hs.system_evectors, np.dot(init_state, hs.system_evectors.T)) # transform to site basis
 #dm_history, time = hs.converged_time_evolution(init_state, 8, 8, time_step, duration)
 hs.init_system_dm = init_state
-hs.truncation_level = 8
+hs.truncation_level = 9
 dm_history, time = hs.calculate_time_evolution(time_step, duration)
 #exciton_dm_history = hs.transform_to_exciton_basis(dm_history)
        
