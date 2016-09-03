@@ -14,8 +14,8 @@ np.set_printoptions(precision=6,linewidth=200, suppress=False)
 
 print '[Executing script...]'
 
-time_step = 0.001
-duration = 4. # picoseconds
+time_step = 0.01
+duration = 1. # picoseconds
 
 electronic_coupling = 100.
 system_hamiltonian = np.array([[100., electronic_coupling], [electronic_coupling, 0]])
@@ -37,6 +37,7 @@ dm_history, time = hs.calculate_time_evolution(time_step, duration)
 #exciton_dm_history = hs.transform_to_exciton_basis(dm_history)
        
 print dm_history[-1]
+print dm_history.shape
        
 end = tutils.getTime()
 print 'Calculation took ' + str(tutils.duration(end, start))

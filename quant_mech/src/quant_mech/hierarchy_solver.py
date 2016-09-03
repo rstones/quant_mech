@@ -4,15 +4,11 @@ Created on 21 Mar 2014
 @author: rstones
 '''
 import numpy as np
-import numba
 import scipy.linalg as la
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from scipy.integrate import odeint
 from scipy.integrate import ode
-import quant_mech.open_systems as os
 import quant_mech.utils as utils
-import quant_mech.time_utils as tutils
 from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings
 
 class HierarchySolver(object):
@@ -284,16 +280,15 @@ class HierarchySolver(object):
             return hierarchy_matrix.dot(rho)
 
         r = ode(f).set_integrator('zvode', method='bdf')
-        r.set_initial_value(init_state, t0)
-
+        
         dm_history = []
         dm_history.append(self.extract_system_density_matrix(init_state))
+        
+        r.set_initial_value(init_state, t0)
         while r.successful() and r.t < duration:
             dm_history.append(self.extract_system_density_matrix(r.integrate(r.t+time_step)))
-
-        dm_history = np.array(dm_history)
         
-        return dm_history, time
+        return np.array(dm_history), time
     
     # wrapper for time evolution which includes convergence testing
     def converged_time_evolution(self, init_state, init_trunc, max_trunc, time_step, duration, accuracy=0.01, params_in_wavenums=True): #, sparse=False):
