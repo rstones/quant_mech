@@ -403,6 +403,8 @@ def generalised_exciton_lbf2(t, excitons, lbf_coeffs):
 
 '''
 lbf is already defined at each time step before passing to FFT function
+
+state_freq should include the reorganisation energy
 '''
 def absorption_line_shape_FFT(time, state_freq, lbf, lifetime=None):
     N =  time.shape[0]
@@ -423,6 +425,9 @@ def absorption_line_shape(time, state_freq, lbf):
 def absorption_line_shape2(t, state_freq, excitons, lbf_coeffs):
     return np.exp(-1.j * state_freq * t  - generalised_exciton_lbf2(t, excitons, lbf_coeffs))
 
+'''
+state_freq should include the reorganisation energy
+'''
 def fluorescence_line_shape_FFT(time, state_freq, E_reorg, lbf, lifetime=None):
     N =  time.shape[0]
     #integrand = np.array([np.exp((-1.j*state_freq*t) + (2.j*E_reorg*t) + (-lbf[i].conj()) - ((t/lifetime) if lifetime else 0)) for i,t in enumerate(time)])

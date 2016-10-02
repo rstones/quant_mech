@@ -16,7 +16,7 @@ class HierarchySolver(object):
     classdocs
     '''
 
-    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, temperature, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0):
+    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, temperature, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0, temperature_correction=False):
         '''
         Constructor
         
@@ -52,6 +52,8 @@ class HierarchySolver(object):
         self.num_matsubara_freqs = num_matsubara_freqs
         self.matsubara_freqs = self.calculate_matsubara_freqs()
         
+        self.temperature_correction = temperature_correction
+        
         self.num_aux_dm_indices = (1 + 2*self.num_modes)*self.system_dimension + self.num_matsubara_freqs
         
         # calculate coefficients of operators coupling to lower tiers and fill in vectors
@@ -86,7 +88,7 @@ class HierarchySolver(object):
         return self.drude_reorg_energy*self.drude_cutoff
     
     '''
-    Absolute value of the leading coefficient from exponential expansion of the Drude spectral density 
+    Absolute value of the leading coefficient from exponential expansion of the Drude spectral density
     '''
     def drude_scaling_factor(self):
         return np.abs(self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) + 1.j))
@@ -223,6 +225,8 @@ class HierarchySolver(object):
         diag_stuff = np.zeros(n_vectors.shape)
         diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
         coeff_vector = self.drude_zeroth_order_freqs
+        if self.num_matsubara_freqs:
+            pass
         if self.num_modes:
             for i in range(self.num_modes):
                 neg_mode_start_idx = self.system_dimension*(1+2*i)
@@ -234,6 +238,14 @@ class HierarchySolver(object):
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
         
         hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
+        
+        # include temperature correction / Markovian truncation term for Matsubara frequencies
+        if self.temperature_correction:
+            tc_term = self.drude_temperature_correction()
+            for i in range(self.num_modes):
+                tc_term += self.mode_temperature_correction(i)
+            Vx_squared = np.sum(np.array([np.dot(Vx,Vx) for Vx in self.Vx_operators]), axis=0)
+            hm -= sp.kron(tc_term*sp.eye(self.number_density_matrices()), Vx_squared)
         
         # off diag bits
         for n in range(self.num_aux_dm_indices):
@@ -477,9 +489,9 @@ class HierarchySolver(object):
             matsubara_vector = n_vectors[n_index][self.system_dimension*(1+2*self.num_modes):]
             operators[:,n_index*sub_matrix_dim:(n_index+1)*sub_matrix_dim] -= np.eye(self.system_dimension**2) * np.dot(matsubara_vector.T, self.matsubara_freqs)
             # include temperature correction term, need to sum coupling operators for each site as Matsubara freqs are for all sites
-            operators[:,n_index*sub_matrix_dim:(n_index+1)*sub_matrix_dim] -= self.drude_temperature_correction() * np.dot(np.sum(self.Vx_operators, axis=0), np.sum(self.Vx_operators, axis=0)) 
+            operators[:,n_index*sub_matrix_dim:(n_index+1)*sub_matrix_dim] -= self.drude_temperature_correction() * np.dot(np.sum(self.Vx_operators, axis=0), np.sum(self.Vx_operators, axis=0))
         if np.any(self.underdamped_mode_params):
-            mode_vectors = n_vectors[n_index][self.system_dimension:self.system_dimension*(1+2*self.num_modes)] 
+            mode_vectors = n_vectors[n_index][self.system_dimension:self.system_dimension*(1+2*self.num_modes)]
             mode_vectors.shape = (2*self.num_modes, self.system_dimension)                                        
             operators[:,n_index*sub_matrix_dim:(n_index+1)*sub_matrix_dim] -= 0.5 * np.eye(self.system_dimension**2) * np.sum([np.dot(mode_vectors[i].T + mode_vectors[i+1].T, self.BO_zeroth_order_freqs[i/2]) for i in range(0,2*self.num_modes,2)])
             operators[:,n_index*sub_matrix_dim:(n_index+1)*sub_matrix_dim] += 1.j * np.eye(self.system_dimension**2) * np.sum([np.dot(mode_vectors[i].T - mode_vectors[i+1].T, self.BO_zetas[i/2]) for i in range(0,2*self.num_modes,2)])
@@ -668,9 +680,21 @@ class HierarchySolver(object):
         
         return full_sum - np.sum(kth_term(range(self.num_matsubara_freqs)))
     
-    def mode_temperature_correction(self):
-        pass
-    
+    def mode_temperature_correction(self, mode_idx):
+        freq = self.underdamped_mode_params[mode_idx][0]
+        reorg_energy = freq * self.underdamped_mode_params[mode_idx][1]
+        damping = self.underdamped_mode_params[mode_idx][2]
+        zeta = np.sqrt(freq**2 - (damping**2/4.))
+        
+        full_sum = (reorg_energy/(2.*zeta)) * ((np.sin(self.beta*damping/2.) + damping*np.sinh(self.beta*zeta)) / \
+                                               (np.cos(self.beta*damping/2.) - np.cosh(self.beta*zeta))) \
+                                               + (2.*damping / (self.beta*freq**2))
+                                               
+        def kth_term(k):
+            return (4.*reorg_energy*damping*freq**2) / (self.beta*((freq**2 + self.matsubara_freqs[k]**2)**2 - (damping * self.matsubara_freqs[k])**2))
+        
+        return full_sum - np.sum(kth_term(range(self.num_matsubara_freqs)))
+        
     def construct_commutator_operators(self):
         Vx_operators = np.zeros((self.system_dimension, self.system_dimension**2, self.system_dimension**2))
         Vo_operators = np.zeros((self.system_dimension, self.system_dimension**2, self.system_dimension**2))
