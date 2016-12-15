@@ -17,6 +17,8 @@ print '[Executing script...]'
 time_step = 0.005
 duration = 1. # picoseconds
 
+'''Testing new branch commiting'''
+
 electronic_coupling = 100.
 system_hamiltonian = np.array([[100., electronic_coupling], [electronic_coupling, 0]])
 reorg_energy = 100.
