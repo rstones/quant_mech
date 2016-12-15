@@ -16,7 +16,7 @@ class HierarchySolver(object):
     classdocs
     '''
 
-    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, temperature, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0, temperature_correction=False):
+    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0, temperature_correction=False):
         '''
         Constructor
         
@@ -26,11 +26,11 @@ class HierarchySolver(object):
         self.init_system_dm = None
         self.drude_reorg_energy = drude_reorg_energy
         self.drude_cutoff = drude_cutoff
-        self.temperature = temperature
+        #self.temperature = temperature
         '''
         get user to provide beta in appropriate units
         '''
-        self.beta = 1. / (utils.KELVIN_TO_WAVENUMS * self.temperature)
+        self.beta = beta #1. / (utils.KELVIN_TO_WAVENUMS * self.temperature)
         self.system_hamiltonian = hamiltonian
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
@@ -254,12 +254,12 @@ class HierarchySolver(object):
         sys_dm.shape = self.system_dimension, self.system_dimension
         return sys_dm
     
-    def calculate_time_evolution(self, time_step, duration, params_in_wavenums=True):
+    def calculate_time_evolution(self, time_step, duration):
         
         hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()
         
-        if params_in_wavenums:
-            hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
+#         if params_in_wavenums:
+#             hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
             
         time = np.arange(0,duration+time_step,time_step)
         init_state, t0 = self.construct_init_vector(), 0
