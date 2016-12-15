@@ -19,18 +19,11 @@ class HierarchySolver(object):
     def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0, temperature_correction=False):
         '''
         Constructor
-        
-        Currently assumes identical Drude spectral density on each site
-        
         '''
         self.init_system_dm = None
         self.drude_reorg_energy = drude_reorg_energy
         self.drude_cutoff = drude_cutoff
-        #self.temperature = temperature
-        '''
-        get user to provide beta in appropriate units
-        '''
-        self.beta = beta #1. / (utils.KELVIN_TO_WAVENUMS * self.temperature)
+        self.beta = beta
         self.system_hamiltonian = hamiltonian
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
@@ -257,9 +250,6 @@ class HierarchySolver(object):
     def calculate_time_evolution(self, time_step, duration):
         
         hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()
-        
-#         if params_in_wavenums:
-#             hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
             
         time = np.arange(0,duration+time_step,time_step)
         init_state, t0 = self.construct_init_vector(), 0
@@ -279,7 +269,7 @@ class HierarchySolver(object):
         return np.array(dm_history), time
     
     # wrapper for time evolution which includes convergence testing
-    def converged_time_evolution(self, init_state, init_trunc, max_trunc, time_step, duration, accuracy=0.01, params_in_wavenums=True): #, sparse=False):
+    def converged_time_evolution(self, init_state, init_trunc, max_trunc, time_step, duration, accuracy=0.01): #, sparse=False):
         if init_trunc > max_trunc:
             raise Exception("init_trunc must be less than or equal to max_trunc")
         #accuracy = 0.01 #need to think about proper accuracy here
@@ -288,9 +278,9 @@ class HierarchySolver(object):
         
         # first check previous level in case hierarchy has converged first time
         self.truncation_level = init_trunc
-        current_history, time = self.calculate_time_evolution(time_step, duration, params_in_wavenums)# if not sparse else self.calculate_time_evolution_sparse(time_step, duration, params_in_wavenums)
+        current_history, time = self.calculate_time_evolution(time_step, duration)
         self.truncation_level = init_trunc - 1
-        previous_history, time = self.calculate_time_evolution(time_step, duration, params_in_wavenums)# if not sparse else self.calculate_time_evolution_sparse(time_step, duration, params_in_wavenums)[0]
+        previous_history, time = self.calculate_time_evolution(time_step, duration)
         
         print current_history.shape
         print previous_history.shape
@@ -303,7 +293,7 @@ class HierarchySolver(object):
             current_level = init_trunc
             while not converged and self.truncation_level < max_trunc:
                 self.truncation_level = current_level + 1
-                next_history, time = self.calculate_time_evolution(time_step, duration, params_in_wavenums)# if not sparse else self.calculate_time_evolution_sparse(time_step, duration, params_in_wavenums)[0]
+                next_history, time = self.calculate_time_evolution(time_step, duration)
                 converged = self.check_dm_history_convergence(current_history, next_history, accuracy)
                 current_level += 1
                 current_history = next_history
@@ -367,15 +357,9 @@ class HierarchySolver(object):
             
         return current_steady_state
     
-    def init_steady_state_vector(self, init_state, time_step, duration, params_in_wavenums=True):
+    def init_steady_state_vector(self, init_state, time_step, duration):
         
         hierarchy_matrix = self.construct_hierarchy_matrix_fast()
-#         print "Memory usage of hierarchy matrix: " \
-#                     + str((hierarchy_matrix.data.nbytes+hierarchy_matrix.indptr.nbytes+hierarchy_matrix.indices.nbytes) / 1.e9) \
-#                     + "Gb"
-        
-        if params_in_wavenums:
-            hierarchy_matrix = hierarchy_matrix.multiply(utils.WAVENUMS_TO_INVERSE_PS)
             
         time = np.arange(0,duration+time_step,time_step)
         init_vector = np.zeros(self.M_dimension(), dtype='complex64')
