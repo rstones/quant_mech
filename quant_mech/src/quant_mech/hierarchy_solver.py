@@ -209,8 +209,6 @@ class HierarchySolver(object):
         diag_stuff = np.zeros(n_vectors.shape)
         diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
         coeff_vector = self.drude_zeroth_order_freqs
-        if self.num_matsubara_freqs:
-            pass
         if self.num_modes:
             for i in range(self.num_modes):
                 neg_mode_start_idx = self.system_dimension*(1+2*i)
@@ -220,6 +218,8 @@ class HierarchySolver(object):
                 # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
+        if self.num_matsubara_freqs:
+            pass
         
         hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         

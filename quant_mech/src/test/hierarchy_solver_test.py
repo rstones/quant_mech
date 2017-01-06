@@ -20,7 +20,7 @@ duration = 0.2 # inverse wavenums
 
 electronic_coupling = 100.
 system_hamiltonian = np.array([[100., electronic_coupling], [electronic_coupling, 0]])
-reorg_energy = 100.
+reorg_energy = 2.
 cutoff_freq = 53.08
 temperature = 300. # Kelvin
 beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
