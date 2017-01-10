@@ -46,30 +46,47 @@ class HierarchySolver(object):
                 self.BO_zetas[i].fill(np.sqrt(mode[0]**2 - mode[2]**2/4.))
         
         self.num_matsubara_freqs = num_matsubara_freqs
-        self.matsubara_freqs = self.calculate_matsubara_freqs()
-        
         self.temperature_correction = temperature_correction
+        if self.num_matsubara_freqs > 0 or self.temperature_correction:
+            self.matsubara_freqs = self.calculate_matsubara_freqs()
         
-        self.num_aux_dm_indices = (1 + 2*self.num_modes)*self.system_dimension + self.num_matsubara_freqs
+        '''Currently assumes there will be one Drude spectral density,
+        with optional number of modes. Need to change to allow arbitrary combination of 
+        over and underdamped Brownian oscillators.'''
+        self.num_aux_dm_indices = (1 + 2*self.num_modes + self.num_matsubara_freqs)*self.system_dimension
         
+        '''Also assumes that spectral density is same on each site.
+        Change to have different spectral densities on each site.'''
         # calculate coefficients of operators coupling to lower tiers and fill in vectors
+        self.phix_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetax_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetao_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-        self.scaling_factors = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-        self.thetax_coeffs[:self.system_dimension].fill(self.drude_Vx_coeff())
-        self.thetao_coeffs[:self.system_dimension].fill(self.drude_Vo_coeff())
-        self.scaling_factors[:self.system_dimension].fill(self.drude_scaling_factor())
+        #self.scaling_factors = np.zeros(self.num_aux_dm_indices, dtype='complex64')
+        self.phix_coeffs[:self.system_dimension].fill(self.drude_phix_coeffs(0))
+        self.thetax_coeffs[:self.system_dimension].fill(self.drude_thetax_coeff(0))
+        self.thetao_coeffs[:self.system_dimension].fill(self.drude_thetao_coeff(0))
+        #self.scaling_factors[:self.system_dimension].fill(self.drude_scaling_factor())
         for i in range(self.num_modes):
             freq = self.underdamped_mode_params[i][0]
             reorg_energy = self.underdamped_mode_params[i][0]*self.underdamped_mode_params[i][1]
             damping = self.underdamped_mode_params[i][2]
-            self.thetax_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_Vx_coeff(freq, reorg_energy, damping, -1.))
-            self.thetax_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_Vx_coeff(freq, reorg_energy, damping, 1.))
-            self.thetao_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_Vo_coeff(freq, reorg_energy, damping, -1.))
-            self.thetao_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_Vo_coeff(freq, reorg_energy, damping, 1.))
-            self.scaling_factors[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, -1.))
-            self.scaling_factors[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, 1.))
-        # still need to do Matsubara freqs for this
+            self.phix_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, 1.))
+            self.phix_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetax_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetax_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, 1.))
+            self.thetao_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetao_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, 1.))
+            '''Scaling factors are possibly incorrect for mode, see Ed's thesis... '''
+            #self.scaling_factors[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, -1.))
+            #self.scaling_factors[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, 1.))
+            
+        mf_start_idx = (1 + 2*self.num_modes)*self.system_dimension
+        for k in range(1, self.num_matsubara_freqs+1):
+            self.phix_coeffs[mf_start_idx+((k-1)*self.system_dimension):mf_start_idx+(k)*self.system_dimension].fill(self.mf_phix_coeff(self.underdamped_mode_params, k))
+            self.thetax_coeffs[mf_start_idx+((k-1)*self.system_dimension):mf_start_idx+(k)*self.system_dimension].fill(self.mf_thetax_coeff(self.underdamped_mode_params, k))
+            # thetao coeffs are 0 for Matsubara freqs
+            # will include scaling factors for Matsubara freqs in the expansion coeffs
+            #self.scaling_factors[mf_start_idx+(k*self.system_dimension):mf_start_idx+(k+1)*self.system_dimension].fill(1)
         
         self.jump_operators = jump_operators
         self.jump_rates = jump_rates
@@ -79,34 +96,109 @@ class HierarchySolver(object):
         
     def calculate_matsubara_freqs(self):
         return np.array([2.*np.pi*k / self.beta for k in range(1,self.num_matsubara_freqs+1)])
+    
+    def drude_expansion_coeffs(self, k):
+        '''k is an integer running from 0 to self.num_matsubara_freqs'''
+        if not (k>=0 and isinstance(k, (int, long))) or k > self.num_matsubara_freqs:
+            raise ValueError("k should be non-negative integer running from 0 to self.num_matsubara_freqs")
+        if k == 0: # leading coefficient
+            return self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) - 1.j) 
+        else: # Matsubara coefficients
+            return (4.*self.drude_reorg_energy*self.drude_cutoff / self.beta) \
+                                * (self.matsubara_freqs[k-1] / (self.matsubara_freqs[k-1]**2 - self.drude_cutoff**2))
+    
+    def drude_phix_coeffs(self, k):
+        return 1.j * np.sqrt(np.abs(self.drude_expansion_coeffs(k)))
         
-    def drude_Vx_coeff(self):
-        return 1.j*self.drude_reorg_energy*self.drude_cutoff / np.tan(self.beta*self.drude_cutoff/2.)
+    def drude_thetax_coeff(self, k):
+        return 1.j * (1. / np.sqrt(np.abs(self.drude_expansion_coeffs(k)))) \
+                            * self.drude_reorg_energy*self.drude_cutoff / np.tan(self.beta*self.drude_cutoff/2.)
     
-    def drude_Vo_coeff(self):
-        return self.drude_reorg_energy*self.drude_cutoff
+    def drude_thetao_coeff(self, k):
+        return (1. / np.sqrt(np.abs(self.drude_expansion_coeffs(k)))) \
+                            * self.drude_reorg_energy*self.drude_cutoff 
     
-    '''
-    Absolute value of the leading coefficient from exponential expansion of the Drude spectral density
-    '''
-    def drude_scaling_factor(self):
-        return np.abs(self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) + 1.j))
+#     def drude_scaling_factor(self):
+#         '''Absolute value of the leading coefficient from exponential expansion of the Drude spectral density'''
+#         # not sure this + 1.j is correct?
+#         return np.abs(self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) + 1.j))
     
-    def mode_Vx_coeff(self, freq, reorg_energy, damping, plus_or_minus):
+    def mode_expansion_coeffs(self, freq, reorg_energy, damping, k, plus_or_minus=1.):
+        '''k is an integer running from 0 to self.num_matsubara_freqs
+        plus_or_minus must be either +1 or -1'''
+        if not (k>=0 and isinstance(k, (int, long))) or k > self.num_matsubara_freqs:
+            raise ValueError("k should be non-negative integer running from 0 to self.num_matsubara_freqs")
+        elif plus_or_minus not in [1,-1]:
+            raise ValueError("plus_or_minus should be either +1 or -1")
+        if k == 0: # positive leading coefficient
+            zeta = np.sqrt(freq**2 - (damping**2/4.))
+            nu = damping/2. + plus_or_minus*1.j*zeta
+            return plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j)
+        else: # Matsubara coefficients
+            return - (4. * reorg_energy * damping * freq**2 / self.beta) \
+                        * (self.matsubara_freqs[k] / ((freq**2 + self.matsubara_freqs[k]**2)**2 - damping**2 * self.matsubara_freqs[k]**2))
+    
+    def mode_phix_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
+        return 1.j * np.sqrt(np.sqrt(np.abs( \
+                    self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
+                        * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))
+    
+    def mode_thetax_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
         zeta = np.sqrt(freq**2 - (damping**2/4.))
-        return -plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) / np.tanh((1.j*self.beta/4.)*(damping + plus_or_minus*2.j*zeta))
+        return (-plus_or_minus*1.j / np.sqrt(np.sqrt(np.abs( \
+                    self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
+                        * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))) \
+                        *(reorg_energy*freq**2/(2.*zeta)) / np.tanh((1.j*self.beta/4.)*(damping + plus_or_minus*2.j*zeta))
     
-    def mode_Vo_coeff(self, freq, reorg_energy, damping, plus_or_minus):
+    def mode_thetao_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
         zeta = np.sqrt(freq**2 - (damping**2/4.))
-        return plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta))
+        return (plus_or_minus*1.j  / np.sqrt(np.sqrt(np.abs( \
+                    self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
+                        * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))) \
+                        *(reorg_energy*freq**2 / (2.*zeta))
     
-    '''
-    Absolute value of the leading coefficient from exponential expansion of Brownian oscillator spectral density
-    '''
-    def mode_scaling_factor(self, freq, reorg_energy, damping, plus_or_minus):
-        zeta = np.sqrt(freq**2 - (damping**2/4.))
-        nu = damping/2. + plus_or_minus*1.j*zeta
-        return np.abs(plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j))
+#     '''
+#     Absolute value of the leading coefficient from exponential expansion of Brownian oscillator spectral density
+#     '''
+#     def mode_scaling_factor(self, freq, reorg_energy, damping, plus_or_minus):
+#         zeta = np.sqrt(freq**2 - (damping**2/4.))
+#         nu = damping/2. + plus_or_minus*1.j*zeta
+#         return np.abs(plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j))
+    
+#     def drude_coeffs(self, k):
+#         '''Expecting arg k to run from 0 to self.num_matsubara_freqs-1 '''
+#         return (4.*self.drude_reorg_energy*self.drude_cutoff / self.beta) * (self.matsubara_freqs[k] / (self.matsubara_freqs[k-1]**2 - self.drude_cutoff**2))
+#     
+#     def mode_coeffs(self, freq, reorg_energy, damping, k):
+#         '''Expecting arg k to run from 0 to self.num_matsubara_freqs-1 '''
+#         return - (4. * reorg_energy * damping * freq**2 / self.beta) * (self.matsubara_freqs[k] / ((freq**2 + self.matsubara_freqs[k]**2)**2 - damping**2 * self.matsubara_freqs[k]**2))
+    
+    def mf_phix_coeff(self, mode_params, k):
+        '''Sum of Drude and mode coeffs
+        k should run from 1 to self.num_matsubara_freqs '''
+        result = np.sqrt(np.abs(self.drude_expansion_coeffs(k)))
+        for mode in mode_params:
+            freq = mode[0]
+            reorg_energy = mode[0]*mode[1]
+            damping = mode[2]
+            result += np.sqrt(np.abs(self.mode_expansion_coeffs(freq, reorg_energy, damping, k)))
+        return 1.j * result
+    
+    def mf_thetax_coeff(self, mode_params, k):
+        '''Sum of Drude and mode coeffs
+        k should run from 1 to self.num_matsubara_freqs '''
+        c_drude = self.drude_expansion_coeffs(k)
+        result = c_drude / np.sqrt(np.abs(c_drude))
+        for mode in mode_params:
+            freq = mode[0]
+            reorg_energy = mode[0]*mode[1]
+            damping = mode[2]
+            c_mode = self.mode_expansion_coeffs(freq, reorg_energy, damping, k)
+            result += 2. * c_mode / np.sqrt(np.abs(c_mode))
+        return 1.j * result
+    
+#     def mf_scaling_factor(self):
+#         pass
 
     def pascals_triangle(self):
         return la.pascal(self.num_aux_dm_indices+1 if self.num_aux_dm_indices > self.truncation_level else self.truncation_level+1)
@@ -123,7 +215,7 @@ class HierarchySolver(object):
     Then sum over first N elements corresponding to truncation level
     '''
     def number_density_matrices(self):
-        return np.sum(self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level])
+        return int(np.sum(self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level]))
     
     def M_dimension(self):
         return self.number_density_matrices() * self.system_dimension**2
@@ -198,7 +290,7 @@ class HierarchySolver(object):
 #                                                                                                    self.dm_per_tier(), self.scaling_factors)
         n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
                             lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
-                                                                                                   self.dm_per_tier(), self.scaling_factors)
+                                                                                                   self.dm_per_tier())#, self.scaling_factors)
         
         # now build the hierarchy matrix
         # diag bits
@@ -218,8 +310,13 @@ class HierarchySolver(object):
                 # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
+                
         if self.num_matsubara_freqs:
-            pass
+            diag_stuff[:,self.system_dimension*(1+2*self.num_modes):] = n_vectors[:,self.system_dimension*(1+2*self.num_modes):]
+            for k in range(self.num_matsubara_freqs):
+                mfk = np.zeros(self.system_dimension)
+                mfk.fill(self.matsubara_freqs[k])
+                coeff_vector = np.append(coeff_vector, mfk)
         
         hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
         
@@ -233,11 +330,9 @@ class HierarchySolver(object):
         
         # off diag bits
         for n in range(self.num_aux_dm_indices):
-#             hm += sp.kron((higher_coupling_matrices[n] * 1.j) + (lower_coupling_matrices[n] * self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
-#                             + sp.kron(lower_coupling_matrices[n] * self.thetao_coeffs[n], self.Vo_operators[n%self.system_dimension])
             higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
             lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
-            hm += sp.kron(higher_coupling_matrix.multiply(1.j) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
+            hm += sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
                             + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n%self.system_dimension])
         
         return hm
@@ -250,6 +345,7 @@ class HierarchySolver(object):
     def calculate_time_evolution(self, time_step, duration):
         
         hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()
+        print 'Constructed hierarchy matrix'
             
         time = np.arange(0,duration+time_step,time_step)
         init_state, t0 = self.construct_init_vector(), 0
@@ -264,8 +360,9 @@ class HierarchySolver(object):
         
         r.set_initial_value(init_state, t0)
         while r.successful() and r.t < duration:
+            print 'done a time step'
             dm_history.append(self.extract_system_density_matrix(r.integrate(r.t+time_step)))
-        
+        print 'Finished time propagation'
         return np.array(dm_history), time
     
     # wrapper for time evolution which includes convergence testing

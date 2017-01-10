@@ -7,7 +7,7 @@ import numpy as np
 import numba
 
 @numba.jit(nopython=True, cache=True)
-def generate_hierarchy_and_tier_couplings(num_dms, num_indices, truncation_level, dm_per_tier, scaling_factors):
+def generate_hierarchy_and_tier_couplings(num_dms, num_indices, truncation_level, dm_per_tier):#, scaling_factors):
     
     hierarchy = np.zeros((num_dms, num_indices))
     
@@ -58,12 +58,12 @@ def generate_hierarchy_and_tier_couplings(num_dms, num_indices, truncation_level
                         current_tier_vec_idx = j
                         break
                 #lower_coupling_matrices[n][tier_start_indices[next_level]+current_tier_vec_idx, tier_start_indices[next_level-1]+i] = np.sqrt(vec[n] / scaling_factors[n])
-                lower_coupling_elements[n, current_non_zero_element_idx] = np.sqrt(vec[n] / scaling_factors[n])
+                lower_coupling_elements[n, current_non_zero_element_idx] = np.sqrt(vec[n]) #np.sqrt(vec[n] / scaling_factors[n])
                 lower_coupling_row_indices[n, current_non_zero_element_idx] = tier_start_indices[next_level]+current_tier_vec_idx
                 lower_coupling_column_indices[n, current_non_zero_element_idx] = tier_start_indices[next_level-1]+i
                 vec[n] -= 1
                 #higher_coupling_matrices[n][tier_start_indices[next_level-1]+i, tier_start_indices[next_level]+current_tier_vec_idx] = np.sqrt((vec[n]+1)*scaling_factors[n])
-                higher_coupling_elements[n, current_non_zero_element_idx] = np.sqrt((vec[n]+1)*scaling_factors[n])
+                higher_coupling_elements[n, current_non_zero_element_idx] = np.sqrt((vec[n]+1)) # np.sqrt((vec[n]+1)*scaling_factors[n])
                 higher_coupling_row_indices[n, current_non_zero_element_idx] = tier_start_indices[next_level-1]+i
                 higher_coupling_column_indices[n, current_non_zero_element_idx] = tier_start_indices[next_level]+current_tier_vec_idx
             current_non_zero_element_idx += 1

@@ -18,21 +18,36 @@ time_step = 0.001
 #duration = 1. # picoseconds
 duration = 0.2 # inverse wavenums
 
+'''Ishizaki and Fleming params'''
 electronic_coupling = 100.
 system_hamiltonian = np.array([[100., electronic_coupling], [electronic_coupling, 0]])
-reorg_energy = 2.
+reorg_energy = 100.
 cutoff_freq = 53.08
 temperature = 300. # Kelvin
 beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
 mode_params = [] #[(200., 0.25, 10.)]
-hs = HierarchySolver(system_hamiltonian, reorg_energy, cutoff_freq, beta, underdamped_mode_params=mode_params, num_matsubara_freqs=0, temperature_correction=False)
+
+'''Ed's PE545 params'''
+# electronic_coupling = 92.
+# system_hamiltonian = np.array([[1042., electronic_coupling], [electronic_coupling, 0]])
+# reorg_energy = 100.
+# cutoff_freq = 140. #53.08
+# temperature = 300. # Kelvin
+# beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
+# mode_params = [] #[(1111., 0.0578, 10.)]
+
+hs = HierarchySolver(system_hamiltonian, reorg_energy, cutoff_freq, beta, underdamped_mode_params=mode_params, \
+                    num_matsubara_freqs=0, temperature_correction=True)
+
+hs.truncation_level = 11
+print hs.system_dimension**2 * hs.number_density_matrices()
 
 print 'Calculating time evolution...'
 start = tutils.getTime()
 
 init_state = np.array([[1.,0],[0,0]])
-# init_state = np.dot(hs.system_evectors, np.dot(init_state, hs.system_evectors.T))
-# print init_state
+#init_state = np.dot(hs.system_evectors.T, np.dot(init_state, hs.system_evectors))
+#print init_state
 
 hs.init_system_dm = init_state
 hs.truncation_level = 11
@@ -49,6 +64,7 @@ plt.subplot(121)
 plt.plot(time, [dm[0,0] for dm in dm_history], linewidth=2)
 #plt.plot(time, [dm[1,1] for dm in dm_history], linewidth=2)
 plt.ylim(0.3, 1)
+plt.xlim(0,1)
 plt.subplot(122)
 plt.plot(time, np.abs([dm[0,1] for dm in dm_history]), linewidth=2)
 plt.show()
