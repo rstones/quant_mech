@@ -345,7 +345,6 @@ class HierarchySolver(object):
     def calculate_time_evolution(self, time_step, duration):
         
         hierarchy_matrix = self.construct_hierarchy_matrix_super_fast()
-        print 'Constructed hierarchy matrix'
             
         time = np.arange(0,duration+time_step,time_step)
         init_state, t0 = self.construct_init_vector(), 0
@@ -360,9 +359,7 @@ class HierarchySolver(object):
         
         r.set_initial_value(init_state, t0)
         while r.successful() and r.t < duration:
-            print 'done a time step'
             dm_history.append(self.extract_system_density_matrix(r.integrate(r.t+time_step)))
-        print 'Finished time propagation'
         return np.array(dm_history), time
     
     # wrapper for time evolution which includes convergence testing
