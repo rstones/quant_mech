@@ -37,7 +37,7 @@ mode_params = [] #[(200., 0.25, 10.)]
 # mode_params = [] #[(1111., 0.0578, 10.)]
 
 hs = HierarchySolver(system_hamiltonian, reorg_energy, cutoff_freq, beta, underdamped_mode_params=mode_params, \
-                    num_matsubara_freqs=0, temperature_correction=True)
+                    num_matsubara_freqs=1, temperature_correction=True, sites_to_couple=np.array([1,1]))
 
 hs.truncation_level = 11
 print hs.system_dimension**2 * hs.number_density_matrices()

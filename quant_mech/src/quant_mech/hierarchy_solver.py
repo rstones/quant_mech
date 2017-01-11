@@ -16,7 +16,10 @@ class HierarchySolver(object):
     classdocs
     '''
 
-    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, jump_operators=None, jump_rates=None, underdamped_mode_params=[], num_matsubara_freqs=0, temperature_correction=False):
+    def __init__(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, \
+                 jump_operators=None, jump_rates=None, underdamped_mode_params=[], \
+                 num_matsubara_freqs=0, temperature_correction=False, \
+                 sites_to_couple=[]):
         '''
         Constructor
         '''
@@ -28,10 +31,25 @@ class HierarchySolver(object):
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
         
+        self.jump_operators = jump_operators
+        self.jump_rates = jump_rates
+        
         self.system_dimension = self.system_hamiltonian.shape[0]
+        if np.any(sites_to_couple):
+            if sites_to_couple.ndim != 1 or len(sites_to_couple) != self.system_hamiltonian.shape[0] or np.all(sites_to_couple == 0):
+                raise ValueError("sites_to_couple should be a 1d array containing 1s and 0s indicating the index of sites" + \
+                                 " to couple to a bath described by hierarchical equations of motion.")
+            self.sites_to_couple = sites_to_couple
+            self.heom_sys_dim = np.count_nonzero(self.sites_to_couple)
+        else:
+            self.heom_sys_dim = self.system_dimension
+            self.sites_to_couple = np.ones(self.system_dimension)
+        
+        # commutator operators for each site coupling to a bath
+        self.Vx_operators, self.Vo_operators = self.construct_commutator_operators()
         
         # zeroth order freqs for identical Drude spectral density on each site are just cutoff freq
-        self.drude_zeroth_order_freqs = np.zeros(self.system_dimension)
+        self.drude_zeroth_order_freqs = np.zeros(self.heom_sys_dim, dtype='complex64')
         self.drude_zeroth_order_freqs.fill(self.drude_cutoff)
         
         # underdamped_mode_params should be a list of tuples
@@ -39,8 +57,8 @@ class HierarchySolver(object):
         self.underdamped_mode_params = underdamped_mode_params
         self.num_modes = len(self.underdamped_mode_params)
         if np.any(self.underdamped_mode_params):
-            self.BO_zeroth_order_freqs = np.zeros((self.num_modes, self.system_dimension))
-            self.BO_zetas = np.zeros((self.num_modes, self.system_dimension))
+            self.BO_zeroth_order_freqs = np.zeros((self.num_modes, self.heom_sys_dim))
+            self.BO_zetas = np.zeros((self.num_modes, self.heom_sys_dim))
             for i,mode in enumerate(self.underdamped_mode_params):
                 self.BO_zeroth_order_freqs[i].fill(mode[2])
                 self.BO_zetas[i].fill(np.sqrt(mode[0]**2 - mode[2]**2/4.))
@@ -53,7 +71,7 @@ class HierarchySolver(object):
         '''Currently assumes there will be one Drude spectral density,
         with optional number of modes. Need to change to allow arbitrary combination of 
         over and underdamped Brownian oscillators.'''
-        self.num_aux_dm_indices = (1 + 2*self.num_modes + self.num_matsubara_freqs)*self.system_dimension
+        self.num_aux_dm_indices = (1 + 2*self.num_modes + self.num_matsubara_freqs)*self.heom_sys_dim
         
         '''Also assumes that spectral density is same on each site.
         Change to have different spectral densities on each site.'''
@@ -61,38 +79,25 @@ class HierarchySolver(object):
         self.phix_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetax_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
         self.thetao_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-        #self.scaling_factors = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-        self.phix_coeffs[:self.system_dimension].fill(self.drude_phix_coeffs(0))
-        self.thetax_coeffs[:self.system_dimension].fill(self.drude_thetax_coeff(0))
-        self.thetao_coeffs[:self.system_dimension].fill(self.drude_thetao_coeff(0))
-        #self.scaling_factors[:self.system_dimension].fill(self.drude_scaling_factor())
+        self.phix_coeffs[:self.heom_sys_dim].fill(self.drude_phix_coeffs(0))
+        self.thetax_coeffs[:self.heom_sys_dim].fill(self.drude_thetax_coeff(0))
+        self.thetao_coeffs[:self.heom_sys_dim].fill(self.drude_thetao_coeff(0))
         for i in range(self.num_modes):
             freq = self.underdamped_mode_params[i][0]
             reorg_energy = self.underdamped_mode_params[i][0]*self.underdamped_mode_params[i][1]
             damping = self.underdamped_mode_params[i][2]
-            self.phix_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, 1.))
-            self.phix_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, -1.))
-            self.thetax_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, -1.))
-            self.thetax_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, 1.))
-            self.thetao_coeffs[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, -1.))
-            self.thetao_coeffs[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, 1.))
-            '''Scaling factors are possibly incorrect for mode, see Ed's thesis... '''
-            #self.scaling_factors[self.system_dimension*(1+2*i):self.system_dimension*(2+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, -1.))
-            #self.scaling_factors[self.system_dimension*(2+2*i):self.system_dimension*(3+2*i)].fill(self.mode_scaling_factor(freq, reorg_energy, damping, 1.))
+            self.phix_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, 1.))
+            self.phix_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetax_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetax_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, 1.))
+            self.thetao_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, -1.))
+            self.thetao_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, 1.))            
             
-        mf_start_idx = (1 + 2*self.num_modes)*self.system_dimension
+        mf_start_idx = (1 + 2*self.num_modes)*self.heom_sys_dim
         for k in range(1, self.num_matsubara_freqs+1):
-            self.phix_coeffs[mf_start_idx+((k-1)*self.system_dimension):mf_start_idx+(k)*self.system_dimension].fill(self.mf_phix_coeff(self.underdamped_mode_params, k))
-            self.thetax_coeffs[mf_start_idx+((k-1)*self.system_dimension):mf_start_idx+(k)*self.system_dimension].fill(self.mf_thetax_coeff(self.underdamped_mode_params, k))
+            self.phix_coeffs[mf_start_idx+((k-1)*self.heom_sys_dim):mf_start_idx+(k*self.heom_sys_dim)].fill(self.mf_phix_coeff(self.underdamped_mode_params, k))
+            self.thetax_coeffs[mf_start_idx+((k-1)*self.heom_sys_dim):mf_start_idx+(k*self.heom_sys_dim)].fill(self.mf_thetax_coeff(self.underdamped_mode_params, k))
             # thetao coeffs are 0 for Matsubara freqs
-            # will include scaling factors for Matsubara freqs in the expansion coeffs
-            #self.scaling_factors[mf_start_idx+(k*self.system_dimension):mf_start_idx+(k+1)*self.system_dimension].fill(1)
-        
-        self.jump_operators = jump_operators
-        self.jump_rates = jump_rates
-        
-        self.Vx_operators, self.Vo_operators = self.construct_commutator_operators() # commutator operators for each site
-        #self.theta_drude_operators = self.construct_theta_drude_operators() # theta operator for each site
         
     def calculate_matsubara_freqs(self):
         return np.array([2.*np.pi*k / self.beta for k in range(1,self.num_matsubara_freqs+1)])
@@ -156,23 +161,7 @@ class HierarchySolver(object):
                     self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
                         * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))) \
                         *(reorg_energy*freq**2 / (2.*zeta))
-    
-#     '''
-#     Absolute value of the leading coefficient from exponential expansion of Brownian oscillator spectral density
-#     '''
-#     def mode_scaling_factor(self, freq, reorg_energy, damping, plus_or_minus):
-#         zeta = np.sqrt(freq**2 - (damping**2/4.))
-#         nu = damping/2. + plus_or_minus*1.j*zeta
-#         return np.abs(plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j))
-    
-#     def drude_coeffs(self, k):
-#         '''Expecting arg k to run from 0 to self.num_matsubara_freqs-1 '''
-#         return (4.*self.drude_reorg_energy*self.drude_cutoff / self.beta) * (self.matsubara_freqs[k] / (self.matsubara_freqs[k-1]**2 - self.drude_cutoff**2))
-#     
-#     def mode_coeffs(self, freq, reorg_energy, damping, k):
-#         '''Expecting arg k to run from 0 to self.num_matsubara_freqs-1 '''
-#         return - (4. * reorg_energy * damping * freq**2 / self.beta) * (self.matsubara_freqs[k] / ((freq**2 + self.matsubara_freqs[k]**2)**2 - damping**2 * self.matsubara_freqs[k]**2))
-    
+
     def mf_phix_coeff(self, mode_params, k):
         '''Sum of Drude and mode coeffs
         k should run from 1 to self.num_matsubara_freqs '''
@@ -196,9 +185,6 @@ class HierarchySolver(object):
             c_mode = self.mode_expansion_coeffs(freq, reorg_energy, damping, k)
             result += 2. * c_mode / np.sqrt(np.abs(c_mode))
         return 1.j * result
-    
-#     def mf_scaling_factor(self):
-#         pass
 
     def pascals_triangle(self):
         return la.pascal(self.num_aux_dm_indices+1 if self.num_aux_dm_indices > self.truncation_level else self.truncation_level+1)
@@ -255,11 +241,11 @@ class HierarchySolver(object):
         return full_sum - np.sum(kth_term(range(self.num_matsubara_freqs)))
         
     def construct_commutator_operators(self):
-        Vx_operators = np.zeros((self.system_dimension, self.system_dimension**2, self.system_dimension**2))
-        Vo_operators = np.zeros((self.system_dimension, self.system_dimension**2, self.system_dimension**2))
-        for i in range(self.system_dimension):
+        Vx_operators = np.zeros((self.heom_sys_dim, self.system_dimension**2, self.system_dimension**2))
+        Vo_operators = np.zeros((self.heom_sys_dim, self.system_dimension**2, self.system_dimension**2))
+        for i,j in enumerate(np.nonzero(self.sites_to_couple)[0]):
             coupling_operator = np.zeros((self.system_dimension, self.system_dimension))
-            coupling_operator[i,i] = 1.
+            coupling_operator[j,j] = 1.
             Vx_operators[i] = self.commutator_to_superoperator(coupling_operator)
             Vo_operators[i] = self.commutator_to_superoperator(coupling_operator, type='+')
         return Vx_operators, Vo_operators
@@ -286,56 +272,53 @@ class HierarchySolver(object):
     
     def construct_hierarchy_matrix_super_fast(self):
         num_dms = self.number_density_matrices()
-#         n_vectors, higher_coupling_matrices, lower_coupling_matrices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
-#                                                                                                    self.dm_per_tier(), self.scaling_factors)
         n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
-                            lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
-                                                                                                   self.dm_per_tier())#, self.scaling_factors)
+                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                                                                                       self.dm_per_tier())
         
         # now build the hierarchy matrix
         # diag bits
-        hm = sp.kron(sp.eye(num_dms), self.liouvillian())
+        hm = sp.kron(sp.eye(num_dms, dtype='complex64'), self.liouvillian())
         
         # n.gamma bit on diagonal
         #n_vectors = np.array(n_vectors)
         diag_stuff = np.zeros(n_vectors.shape)
-        diag_stuff[:,:self.system_dimension] = n_vectors[:,:self.system_dimension]
+        diag_stuff[:,:self.heom_sys_dim] = n_vectors[:,:self.heom_sys_dim]
         coeff_vector = self.drude_zeroth_order_freqs
         if self.num_modes:
             for i in range(self.num_modes):
-                neg_mode_start_idx = self.system_dimension*(1+2*i)
-                pos_mode_start_idx = self.system_dimension*(2+2*i)
-                diag_stuff[:,neg_mode_start_idx:pos_mode_start_idx] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] + n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension]
-                diag_stuff[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] - n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.system_dimension]
+                neg_mode_start_idx = self.heom_sys_dim*(1+2*i)
+                pos_mode_start_idx = self.heom_sys_dim*(2+2*i)
+                diag_stuff[:,neg_mode_start_idx:pos_mode_start_idx] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] + n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim]
+                diag_stuff[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] - n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim]
                 # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
                 
         if self.num_matsubara_freqs:
-            diag_stuff[:,self.system_dimension*(1+2*self.num_modes):] = n_vectors[:,self.system_dimension*(1+2*self.num_modes):]
+            diag_stuff[:,self.heom_sys_dim*(1+2*self.num_modes):] = n_vectors[:,self.heom_sys_dim*(1+2*self.num_modes):]
             for k in range(self.num_matsubara_freqs):
-                mfk = np.zeros(self.system_dimension)
+                mfk = np.zeros(self.heom_sys_dim)
                 mfk.fill(self.matsubara_freqs[k])
                 coeff_vector = np.append(coeff_vector, mfk)
         
-        hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector)), sp.eye(self.system_dimension**2))
-        
+        hm -= sp.kron(sp.diags(np.dot(diag_stuff, coeff_vector), dtype='complex64'), sp.eye(self.system_dimension**2, dtype='complex64'))
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
             tc_term = self.drude_temperature_correction()
             for i in range(self.num_modes):
                 tc_term += self.mode_temperature_correction(i)
             Vx_squared = np.sum(np.array([np.dot(Vx,Vx) for Vx in self.Vx_operators]), axis=0)
-            hm -= sp.kron(tc_term*sp.eye(self.number_density_matrices()), Vx_squared)
+            hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64').multiply(tc_term), Vx_squared).astype('complex64')
         
         # off diag bits
         for n in range(self.num_aux_dm_indices):
             higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
             lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
-            hm += sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n%self.system_dimension]) \
-                            + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n%self.system_dimension])
+            hm += sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n%self.heom_sys_dim]) \
+                            + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n%self.heom_sys_dim])
         
-        return hm
+        return hm.astype('complex64')
     
     def extract_system_density_matrix(self, hierarchy_vector):
         sys_dm = hierarchy_vector[:self.system_dimension**2]
