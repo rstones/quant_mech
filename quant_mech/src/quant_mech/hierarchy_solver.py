@@ -10,7 +10,8 @@ import scipy.sparse.linalg as spla
 from scipy.integrate import ode
 import quant_mech.utils as utils
 from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings
-from quant_mech import UBOscillator, OBOscillator
+from quant_mech.OBOscillator import OBOscillator
+from quant_mech.UBOscillator import UBOscillator
 
 class HierarchySolver(object):
     '''
@@ -22,7 +23,7 @@ class HierarchySolver(object):
         '''
         Constructor
         '''
-        self.hamiltonian = hamiltonian
+        self.system_hamiltonian = hamiltonian
         self.environment = environment
         self.beta = beta
         self.jump_operators = jump_operators
@@ -34,7 +35,6 @@ class HierarchySolver(object):
         self.system_evectors = self.system_evectors.T
         self.system_dimension = self.system_hamiltonian.shape[0]
         
-        self.heom_sys_dim = 0
         if self.num_matsubara_freqs>0 or self.temperature_correction:
             self.matsubara_freqs = self.calculate_matsubara_freqs()
         self.Vx_operators, self.Vo_operators = [],[]#self.construct_commutator_operators()
@@ -43,7 +43,7 @@ class HierarchySolver(object):
         if type(self.environment) is tuple: # multiple oscillators, identical on each site
             self.environment = [self.environment] * self.system_dimension
         elif isinstance(environment, (OBOscillator, UBOscillator)): # single oscillator identical on each site
-            self.environment = [(self.environment)] * self.system_dimension
+            self.environment = [(self.environment,)] * self.system_dimension
         
         if type(self.environment) is list:# environment defined per site
             self.diag_coeffs = []
@@ -53,20 +53,16 @@ class HierarchySolver(object):
             self.tc_terms = []
             for i,site in enumerate(self.environment):
                 if site:
-                    self.heom_sys_dim += 1
-                    site_coupling_operator = np.zeros(self.system_dimension)
+                    site_coupling_operator = np.zeros((self.system_dimension, self.system_dimension))
                     site_coupling_operator[i,i] = 1.
                     site_Vx_operator = self.commutator_to_superoperator(site_coupling_operator, type='-')
                     site_Vo_operator = self.commutator_to_superoperator(site_coupling_operator, type='+')
-                    self.temp_correction_Vx_ops.append(site_Vx_operator)
                     tc_term = 0
                     for osc in site:
                         if isinstance(osc, OBOscillator):
                             self.diag_coeffs.append(osc.cutoff_freq)
                             self.phix_coeffs.append(self.phix_coeff_OBO(osc))
                             site_coupling_operator = np.zeros(self.system_dimension)
-                            site_coupling_operator[i,i] = 1.
-                            self.Vx_operators.append(self.commutator_to_superoperator(site_coupling_operator, type='-'))
                             self.thetax_coeffs.append(self.thetax_coeff_OBO(osc))
                             self.thetao_coeffs.append(self.thetao_coeff_OBO(osc))
                             self.Vx_operators.append(site_Vx_operator)
@@ -84,8 +80,9 @@ class HierarchySolver(object):
                             self.Vx_operators.append(site_Vx_operator)
                             self.Vo_operators.append(site_Vo_operator)
                             self.Vo_operators.append(site_Vo_operator)
-                        tc_term += osc.temp_correction_sum() - np.sum(osc.temp_correction_sum_kth_term(range(1,self.num_matsubara_freqs+1)))
-                    self.tc_terms.append(tc_term * np.dot(site_coupling_operator, site_coupling_operator))
+                        tc_term += osc.temp_correction_sum() \
+                                        - np.sum([osc.temp_correction_sum_kth_term(k) for k in range(1,self.num_matsubara_freqs)])
+                    self.tc_terms.append(tc_term * np.dot(site_Vx_operator, site_Vx_operator))
                     for k in range(1,self.num_matsubara_freqs+1):
                         self.diag_coeffs.append(self.matsubara_freqs(k))
                         self.phix_coeffs.append(self.phix_coeff_MF(site, k))
@@ -101,7 +98,6 @@ class HierarchySolver(object):
         self.thetao_coeffs = np.array(self.thetao_coeffs)
         self.Vx_operators = np.array(self.Vx_operators)
         self.Vo_operators = np.array(self.Vo_operators)
-        self.temp_correction_Vx_ops = np.array(self.temp_correction_Vx_ops)
 
     @classmethod
     def old_constructor(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, \
@@ -261,16 +257,16 @@ class HierarchySolver(object):
 #                         *(reorg_energy*freq**2 / (2.*zeta))
                         
     def phix_coeff_UBO(self, osc, pm=1):
-        return 1.j * np.sqrt(np.sqrt(np.abs( osc.coeffs[0 if pm>0 else 1] * osc.expansion_coeffs(0, pm=-pm).conj() )))
+        return 1.j * np.sqrt(np.sqrt(np.abs( osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))
         
     def thetax_coeff_UBO(self, osc, pm=1):
         return (-pm*1.j / np.sqrt(np.sqrt(np.abs( \
-                    osc.coeffs[0 if pm>0 else 1] * osc.expansion_coeffs(0, pm=-pm).conj() )))) \
+                    osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))) \
                         *(osc.reorg_energy*osc.freq**2/(2.*osc.zeta)) / np.tanh((1.j*self.beta/4.)*(osc.damping + pm*2.j*osc.zeta))
                         
     def thetao_coeff_UBO(self, osc, pm=1):
         return (pm*1.j  / np.sqrt(np.sqrt(np.abs( \
-                    osc.coeffs[0 if pm>0 else 1] * osc.expansion_coeffs(0, pm=-pm).conj() )))) \
+                    osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))) \
                         *(osc.reorg_energy*osc.freq**2 / (2.*osc.zeta))
 
 #     def mf_phix_coeff(self, mode_params, k):
@@ -430,8 +426,8 @@ class HierarchySolver(object):
 #                 mfk = np.zeros(self.heom_sys_dim)
 #                 mfk.fill(self.matsubara_freqs[k])
 #                 coeff_vector = np.append(coeff_vector, mfk)
-        
-        diag_vectors = n_vectors
+
+        diag_vectors = np.copy(n_vectors)
         aux_dm_idx = 0
         for site in self.environment:
             if site:
@@ -447,6 +443,7 @@ class HierarchySolver(object):
         hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype='complex64'), sp.eye(self.system_dimension**2, dtype='complex64'))
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
+            print self.tc_terms[0].shape
             hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64'), np.sum(self.tc_terms, axis=0)).astype('complex64')
 #             tc_term = self.drude_temperature_correction()
 #             for i in range(self.num_modes):
@@ -454,7 +451,7 @@ class HierarchySolver(object):
 #             Vx_squared = np.sum(np.array([np.dot(Vx,Vx) for Vx in self.temp_correction_Vx_ops]), axis=0)
 #             hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64').multiply(tc_term), Vx_squared).astype('complex64')
         
-        # off diag bits
+        # off diag bits        
         for n in range(self.num_aux_dm_indices):
             higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
             lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()

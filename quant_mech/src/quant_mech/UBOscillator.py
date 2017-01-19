@@ -16,13 +16,14 @@ class UBOscillator(object):
         self.reorg_energy = self.freq * self.hr_factor
         self.zeta = np.sqrt(self.freq**2 - (self.damping**2/4.))
         
-        self.coeffs = np.append([self.expansion_coeffs(0, pm=1), self.expansion_coeffs(0, pm=-1)], self.expansion_coeffs(range(1,K+1)))
+        self.coeffs = np.append([self.expansion_coeffs(0, pm=1), self.expansion_coeffs(0, pm=-1)], \
+                                        np.array([self.expansion_coeffs(k) for k in range(1,K+1)]))
     
     def matsubara_freq(self, k):
         return 2. * np.pi * k / self.beta
     
     def nu_plus_minus(self, pm=1):
-        return self.self.damping/2. + pm*1.j*self.zeta
+        return self.damping/2. + pm*1.j*self.zeta
     
     def expansion_coeffs(self, k, pm=1):
         '''k is an integer 

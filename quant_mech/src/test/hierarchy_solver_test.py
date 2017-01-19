@@ -9,6 +9,8 @@ import quant_mech.utils as utils
 from quant_mech.hierarchy_solver import HierarchySolver
 import quant_mech.time_evolution as te
 import quant_mech.time_utils as tutils
+from quant_mech.OBOscillator import OBOscillator
+from quant_mech.UBOscillator import UBOscillator
 
 np.set_printoptions(precision=6, linewidth=200, suppress=False)
 
@@ -36,11 +38,11 @@ mode_params = [] #[(200., 0.25, 10.)]
 # beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
 # mode_params = [] #[(1111., 0.0578, 10.)]
 
-hs = HierarchySolver(system_hamiltonian, reorg_energy, cutoff_freq, beta, underdamped_mode_params=mode_params, \
-                    num_matsubara_freqs=1, temperature_correction=True, sites_to_couple=np.array([1,1]))
-
+K = 0
+environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K)), \
+               (OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K))]
+hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False)
 hs.truncation_level = 11
-print hs.system_dimension**2 * hs.number_density_matrices()
 
 print 'Calculating time evolution...'
 start = tutils.getTime()

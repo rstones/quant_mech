@@ -15,14 +15,14 @@ class OBOscillator(object):
         self.cutoff_freq =cutoff_freq
         self.beta = beta
         
-        self.coeffs = self.expansion_coeffs(range(1,K+1))
+        self.coeffs = np.array([self.expansion_coeffs(k) for k in range(K+1)])
         
     def matsubara_freq(self, k):
         return 2. * np.pi * k / self.beta
         
     def expansion_coeffs(self, k):
-        if not (k>=0 and isinstance(k, (int, long))):
-            raise ValueError("k should be non-negative integer")
+#         if not (k>=0 and isinstance(k, (int, long))):
+#             raise ValueError("k should be non-negative integer")
         if k == 0: # leading coefficient
             return self.cutoff_freq*self.reorg_energy * (1./np.tan(self.beta*self.cutoff_freq/2.) - 1.j) 
         else: # Matsubara coefficients
