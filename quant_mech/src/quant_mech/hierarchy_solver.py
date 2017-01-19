@@ -403,9 +403,11 @@ class HierarchySolver(object):
                 lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
                                                                                        self.dm_per_tier())
         
+        dtype = 'complex128'
+        
         # now build the hierarchy matrix
         # diag bits
-        hm = sp.kron(sp.eye(num_dms, dtype='complex64'), self.liouvillian())
+        hm = sp.kron(sp.eye(num_dms, dtype=dtype), self.liouvillian())
         
         # n.gamma bit on diagonal
         #n_vectors = np.array(n_vectors)
@@ -442,10 +444,10 @@ class HierarchySolver(object):
                         aux_dm_idx += 2
                 aux_dm_idx += self.num_matsubara_freqs
 
-        hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype='complex64'), sp.eye(self.system_dimension**2, dtype='complex64'))
+        hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype=dtype), sp.eye(self.system_dimension**2, dtype=dtype))
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
-            hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64'), np.sum(self.tc_terms, axis=0)).astype('complex64')
+            hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype=dtype), np.sum(self.tc_terms, axis=0)).astype(dtype)
 #             tc_term = self.drude_temperature_correction()
 #             for i in range(self.num_modes):
 #                 tc_term += self.mode_temperature_correction(i)
@@ -459,7 +461,7 @@ class HierarchySolver(object):
             hm += sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n]) \
                             + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n])
         
-        return hm.astype('complex64')
+        return hm.astype(dtype)
     
     def extract_system_density_matrix(self, hierarchy_vector):
         sys_dm = hierarchy_vector[:self.system_dimension**2]
