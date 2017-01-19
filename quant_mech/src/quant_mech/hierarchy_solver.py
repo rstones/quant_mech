@@ -84,10 +84,12 @@ class HierarchySolver(object):
                                         - np.sum([osc.temp_correction_sum_kth_term(k) for k in range(1,self.num_matsubara_freqs)])
                     self.tc_terms.append(tc_term * np.dot(site_Vx_operator, site_Vx_operator))
                     for k in range(1,self.num_matsubara_freqs+1):
-                        self.diag_coeffs.append(self.matsubara_freqs(k))
+                        self.diag_coeffs.append(self.matsubara_freqs[k-1])
                         self.phix_coeffs.append(self.phix_coeff_MF(site, k))
-                        self.thetax_coeffs.append(self.thetax_coeff_MF(site, k+1))
+                        self.thetax_coeffs.append(self.thetax_coeff_MF(site, k))
+                        self.thetao_coeffs.append(0)
                         self.Vx_operators.append(site_Vx_operator)
+                        self.Vo_operators.append(site_Vo_operator)
         else:
             raise ValueError("Environment defined in invalid format!")
 
@@ -443,7 +445,6 @@ class HierarchySolver(object):
         hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype='complex64'), sp.eye(self.system_dimension**2, dtype='complex64'))
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
-            print self.tc_terms[0].shape
             hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64'), np.sum(self.tc_terms, axis=0)).astype('complex64')
 #             tc_term = self.drude_temperature_correction()
 #             for i in range(self.num_modes):

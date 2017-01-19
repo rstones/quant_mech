@@ -38,9 +38,11 @@ mode_params = [] #[(200., 0.25, 10.)]
 # beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
 # mode_params = [] #[(1111., 0.0578, 10.)]
 
-K = 0
-environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K)), \
-               (OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K))]
+K = 2
+# environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K)), \
+#                (OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(200., 0.25, 10., beta, K=K))]
+environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K),),
+               (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),)]
 hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False)
 hs.truncation_level = 11
 
