@@ -81,7 +81,7 @@ class HierarchySolver(object):
                             self.Vo_operators.append(site_Vo_operator)
                             self.Vo_operators.append(site_Vo_operator)
                         tc_term += osc.temp_correction_sum() \
-                                        - np.sum([osc.temp_correction_sum_kth_term(k) for k in range(1,self.num_matsubara_freqs)])
+                                        - np.sum([osc.temp_correction_sum_kth_term(k) for k in range(1,self.num_matsubara_freqs+1)])
                     self.tc_terms.append(tc_term * np.dot(site_Vx_operator, site_Vx_operator))
                     for k in range(1,self.num_matsubara_freqs+1):
                         self.diag_coeffs.append(self.matsubara_freqs[k-1])
