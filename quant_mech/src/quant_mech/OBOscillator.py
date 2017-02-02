@@ -34,5 +34,6 @@ class OBOscillator(object):
                                 self.beta*self.cutoff_freq*self.reorg_energy*(1./np.tan(self.beta*self.cutoff_freq/2.)))
         
     def temp_correction_sum_kth_term(self, k):
-        return (4.*self.reorg_energy*self.cutoff_freq) / (self.beta*(self.matsubara_freq(k)**2 - self.cutoff_freq**2))
+        #return (4.*self.reorg_energy*self.cutoff_freq) / (self.beta*(self.matsubara_freq(k)**2 - self.cutoff_freq**2))
+        return self.coeffs[k] / self.matsubara_freq(k)
     

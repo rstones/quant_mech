@@ -45,4 +45,5 @@ class UBOscillator(object):
                                                + (2.*self.damping / (self.beta*self.freq**2))
                                                
     def temp_correction_sum_kth_term(self, k):
-        return (4.*self.reorg_energy*self.damping*self.freq**2) / (self.beta*((self.freq**2 + self.matsubara_freq(k)**2)**2 - (self.damping * self.matsubara_freq(k))**2))
+        #return (4.*self.reorg_energy*self.damping*self.freq**2) / (self.beta*((self.freq**2 + self.matsubara_freq(k)**2)**2 - (self.damping * self.matsubara_freq(k))**2))
+        return self.coeffs[k+1] / self.matsubara_freq(k)
