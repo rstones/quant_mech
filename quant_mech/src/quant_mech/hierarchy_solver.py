@@ -320,7 +320,7 @@ class HierarchySolver(object):
     Get dm for one extra tier to make indexing of hierarchy easier when keeping them in an array and not a dict
     '''
     def dm_per_tier(self):
-        return self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level+1]
+        return self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level+1].astype('int64')
     
     '''
     Construct Pascal's triangle in matrix form
