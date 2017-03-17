@@ -37,7 +37,7 @@ class HierarchySolver(object):
         
         if self.num_matsubara_freqs>0 or self.temperature_correction:
             self.matsubara_freqs = self.calculate_matsubara_freqs()
-        self.Vx_operators, self.Vo_operators = [],[]#self.construct_commutator_operators()
+        self.Vx_operators, self.Vo_operators = [],[]
         
         # if tuple or UBOscillator or OBOscillator put into list of tuples
         if type(self.environment) is tuple: # multiple oscillators, identical on each site
@@ -62,7 +62,7 @@ class HierarchySolver(object):
                         if isinstance(osc, OBOscillator):
                             self.diag_coeffs.append(osc.cutoff_freq)
                             self.phix_coeffs.append(self.phix_coeff_OBO(osc))
-                            site_coupling_operator = np.zeros(self.system_dimension)
+                            #site_coupling_operator = np.zeros(self.system_dimension)
                             self.thetax_coeffs.append(self.thetax_coeff_OBO(osc))
                             self.thetao_coeffs.append(self.thetao_coeff_OBO(osc))
                             self.Vx_operators.append(site_Vx_operator)
@@ -101,162 +101,19 @@ class HierarchySolver(object):
         self.Vx_operators = np.array(self.Vx_operators)
         self.Vo_operators = np.array(self.Vo_operators)
 
-    @classmethod
-    def old_constructor(self, hamiltonian, drude_reorg_energy, drude_cutoff, beta, \
-                 jump_operators=None, jump_rates=None, underdamped_mode_params=[], \
-                 num_matsubara_freqs=0, temperature_correction=False, \
-                 sites_to_couple=[]):
-        pass
-        
-#         self.init_system_dm = None
-#         self.drude_reorg_energy = drude_reorg_energy
-#         self.drude_cutoff = drude_cutoff
-#         self.beta = beta
-#         self.system_hamiltonian = hamiltonian
-#         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
-#         self.system_evectors = self.system_evectors.T
-#         
-#         self.jump_operators = jump_operators
-#         self.jump_rates = jump_rates
-#         
-#         self.system_dimension = self.system_hamiltonian.shape[0]
-#         if np.any(sites_to_couple):
-#             if sites_to_couple.ndim != 1 or len(sites_to_couple) != self.system_hamiltonian.shape[0] or np.all(sites_to_couple == 0):
-#                 raise ValueError("sites_to_couple should be a 1d array containing 1s and 0s indicating the index of sites" + \
-#                                  " to couple to a bath described by hierarchical equations of motion.")
-#             self.sites_to_couple = sites_to_couple
-#             self.heom_sys_dim = np.count_nonzero(self.sites_to_couple)
-#         else:
-#             self.heom_sys_dim = self.system_dimension
-#             self.sites_to_couple = np.ones(self.system_dimension)
-#         
-#         # commutator operators for each site coupling to a bath
-#         self.Vx_operators, self.Vo_operators = self.construct_commutator_operators()
-#         
-#         # zeroth order freqs for identical Drude spectral density on each site are just cutoff freq
-#         self.drude_zeroth_order_freqs = np.zeros(self.heom_sys_dim, dtype='complex64')
-#         self.drude_zeroth_order_freqs.fill(self.drude_cutoff)
-#         
-#         # underdamped_mode_params should be a list of tuples
-#         # each tuple having frequency, Huang-Rhys factor and damping for each mode in that order
-#         self.underdamped_mode_params = underdamped_mode_params
-#         self.num_modes = len(self.underdamped_mode_params)
-#         if np.any(self.underdamped_mode_params):
-#             self.BO_zeroth_order_freqs = np.zeros((self.num_modes, self.heom_sys_dim))
-#             self.BO_zetas = np.zeros((self.num_modes, self.heom_sys_dim))
-#             for i,mode in enumerate(self.underdamped_mode_params):
-#                 self.BO_zeroth_order_freqs[i].fill(mode[2])
-#                 self.BO_zetas[i].fill(np.sqrt(mode[0]**2 - mode[2]**2/4.))
-#         
-#         self.num_matsubara_freqs = num_matsubara_freqs
-#         self.temperature_correction = temperature_correction
-#         if self.num_matsubara_freqs > 0 or self.temperature_correction:
-#             self.matsubara_freqs = self.calculate_matsubara_freqs()
-#         
-#         '''Currently assumes there will be one Drude spectral density,
-#         with optional number of modes. Need to change to allow arbitrary combination of 
-#         over and underdamped Brownian oscillators.'''
-#         self.num_aux_dm_indices = (1 + 2*self.num_modes + self.num_matsubara_freqs)*self.heom_sys_dim
-#         
-#         '''Also assumes that spectral density is same on each site.
-#         Change to have different spectral densities on each site.'''
-#         # calculate coefficients of operators coupling to lower tiers and fill in vectors
-#         self.phix_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-#         self.thetax_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-#         self.thetao_coeffs = np.zeros(self.num_aux_dm_indices, dtype='complex64')
-#         self.phix_coeffs[:self.heom_sys_dim].fill(self.drude_phix_coeffs(0))
-#         self.thetax_coeffs[:self.heom_sys_dim].fill(self.drude_thetax_coeff(0))
-#         self.thetao_coeffs[:self.heom_sys_dim].fill(self.drude_thetao_coeff(0))
-#         for i in range(self.num_modes):
-#             freq = self.underdamped_mode_params[i][0]
-#             reorg_energy = self.underdamped_mode_params[i][0]*self.underdamped_mode_params[i][1]
-#             damping = self.underdamped_mode_params[i][2]
-#             self.phix_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, 1.))
-#             self.phix_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_phix_coeff(freq, reorg_energy, damping, 0, -1.))
-#             self.thetax_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, -1.))
-#             self.thetax_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_thetax_coeff(freq, reorg_energy, damping, 0, 1.))
-#             self.thetao_coeffs[self.heom_sys_dim*(1+2*i):self.heom_sys_dim*(2+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, -1.))
-#             self.thetao_coeffs[self.heom_sys_dim*(2+2*i):self.heom_sys_dim*(3+2*i)].fill(self.mode_thetao_coeff(freq, reorg_energy, damping, 0, 1.))            
-#             
-#         mf_start_idx = (1 + 2*self.num_modes)*self.heom_sys_dim
-#         for k in range(1, self.num_matsubara_freqs+1):
-#             self.phix_coeffs[mf_start_idx+((k-1)*self.heom_sys_dim):mf_start_idx+(k*self.heom_sys_dim)].fill(self.mf_phix_coeff(self.underdamped_mode_params, k))
-#             self.thetax_coeffs[mf_start_idx+((k-1)*self.heom_sys_dim):mf_start_idx+(k*self.heom_sys_dim)].fill(self.mf_thetax_coeff(self.underdamped_mode_params, k))
-#             # thetao coeffs are 0 for Matsubara freqs
-        
     def calculate_matsubara_freqs(self):
         return np.array([2.*np.pi*k / self.beta for k in range(1,self.num_matsubara_freqs+1)])
-    
-#     def drude_expansion_coeffs(self, k):
-#         '''k is an integer running from 0 to self.num_matsubara_freqs'''
-#         if not (k>=0 and isinstance(k, (int, long))) or k > self.num_matsubara_freqs:
-#             raise ValueError("k should be non-negative integer running from 0 to self.num_matsubara_freqs")
-#         if k == 0: # leading coefficient
-#             return self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) - 1.j) 
-#         else: # Matsubara coefficients
-#             return (4.*self.drude_reorg_energy*self.drude_cutoff / self.beta) \
-#                                 * (self.matsubara_freqs[k-1] / (self.matsubara_freqs[k-1]**2 - self.drude_cutoff**2))
-#     
-#     def drude_phix_coeffs(self, k):
-#         return 1.j * np.sqrt(np.abs(self.drude_expansion_coeffs(k)))
-#         
-#     def drude_thetax_coeff(self, k):
-#         return 1.j * (1. / np.sqrt(np.abs(self.drude_expansion_coeffs(k)))) \
-#                             * self.drude_reorg_energy*self.drude_cutoff / np.tan(self.beta*self.drude_cutoff/2.)
-#     
-#     def drude_thetao_coeff(self, k):
-#         return (1. / np.sqrt(np.abs(self.drude_expansion_coeffs(k)))) \
-#                             * self.drude_reorg_energy*self.drude_cutoff
                             
     def phix_coeff_OBO(self, osc):
-        return 1.j * np.sqrt(np.abs(osc.coeffs[0]))
+        return 1.j * np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))
         
     def thetax_coeff_OBO(self, osc):
-        return 1.j * (1. / np.sqrt(np.abs(osc.coeffs[0]))) \
+        return 1.j * (1. / np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))) \
                             * osc.reorg_energy*osc.cutoff_freq / np.tan(osc.beta*osc.cutoff_freq/2.)
     
     def thetao_coeff_OBO(self, osc):
-        return (1. / np.sqrt(np.abs(osc.coeffs[0]))) \
-                            * osc.reorg_energy*osc.cutoff_freq 
-    
-#     def drude_scaling_factor(self):
-#         '''Absolute value of the leading coefficient from exponential expansion of the Drude spectral density'''
-#         # not sure this + 1.j is correct?
-#         return np.abs(self.drude_cutoff*self.drude_reorg_energy * (1./np.tan(self.beta*self.drude_cutoff/2.) + 1.j))
-    
-#     def mode_expansion_coeffs(self, freq, reorg_energy, damping, k, plus_or_minus=1.):
-#         '''k is an integer running from 0 to self.num_matsubara_freqs
-#         plus_or_minus must be either +1 or -1'''
-#         if not (k>=0 and isinstance(k, (int, long))) or k > self.num_matsubara_freqs:
-#             raise ValueError("k should be non-negative integer running from 0 to self.num_matsubara_freqs")
-#         elif plus_or_minus not in [1,-1]:
-#             raise ValueError("plus_or_minus should be either +1 or -1")
-#         if k == 0: # positive leading coefficient
-#             zeta = np.sqrt(freq**2 - (damping**2/4.))
-#             nu = damping/2. + plus_or_minus*1.j*zeta
-#             return plus_or_minus*1.j*(reorg_energy*freq**2/(2.*zeta)) * (1./np.tan(nu*self.beta/2.) - 1.j)
-#         else: # Matsubara coefficients
-#             return - (4. * reorg_energy * damping * freq**2 / self.beta) \
-#                         * (self.matsubara_freqs[k] / ((freq**2 + self.matsubara_freqs[k]**2)**2 - damping**2 * self.matsubara_freqs[k]**2))
-#     
-#     def mode_phix_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
-#         return 1.j * np.sqrt(np.sqrt(np.abs( \
-#                     self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
-#                         * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))
-#     
-#     def mode_thetax_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
-#         zeta = np.sqrt(freq**2 - (damping**2/4.))
-#         return (-plus_or_minus*1.j / np.sqrt(np.sqrt(np.abs( \
-#                     self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
-#                         * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))) \
-#                         *(reorg_energy*freq**2/(2.*zeta)) / np.tanh((1.j*self.beta/4.)*(damping + plus_or_minus*2.j*zeta))
-#     
-#     def mode_thetao_coeff(self, freq, reorg_energy, damping, k, plus_or_minus):
-#         zeta = np.sqrt(freq**2 - (damping**2/4.))
-#         return (plus_or_minus*1.j  / np.sqrt(np.sqrt(np.abs( \
-#                     self.mode_expansion_coeffs(freq, reorg_energy, damping, k, plus_or_minus) \
-#                         * self.mode_expansion_coeffs(freq, reorg_energy, damping, k, -plus_or_minus).conj() )))) \
-#                         *(reorg_energy*freq**2 / (2.*zeta))
+        return (1. / np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))) \
+                            * osc.reorg_energy*osc.cutoff_freq
                         
     def phix_coeff_UBO(self, osc, pm=1):
         return 1.j * np.sqrt(np.sqrt(np.abs( osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))
@@ -270,30 +127,6 @@ class HierarchySolver(object):
         return (pm*1.j  / np.sqrt(np.sqrt(np.abs( \
                     osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))) \
                         *(osc.reorg_energy*osc.freq**2 / (2.*osc.zeta))
-
-#     def mf_phix_coeff(self, mode_params, k):
-#         '''Sum of Drude and mode coeffs
-#         k should run from 1 to self.num_matsubara_freqs '''
-#         result = np.sqrt(np.abs(self.drude_expansion_coeffs(k)))
-#         for mode in mode_params:
-#             freq = mode[0]
-#             reorg_energy = mode[0]*mode[1]
-#             damping = mode[2]
-#             result += np.sqrt(np.abs(self.mode_expansion_coeffs(freq, reorg_energy, damping, k)))
-#         return 1.j * result
-#     
-#     def mf_thetax_coeff(self, mode_params, k):
-#         '''Sum of Drude and mode coeffs
-#         k should run from 1 to self.num_matsubara_freqs '''
-#         c_drude = self.drude_expansion_coeffs(k)
-#         result = c_drude / np.sqrt(np.abs(c_drude))
-#         for mode in mode_params:
-#             freq = mode[0]
-#             reorg_energy = mode[0]*mode[1]
-#             damping = mode[2]
-#             c_mode = self.mode_expansion_coeffs(freq, reorg_energy, damping, k)
-#             result += 2. * c_mode / np.sqrt(np.abs(c_mode))
-#         return 1.j * result
     
     def phix_coeff_MF(self, oscs, k):
         coeff = 0
@@ -341,7 +174,7 @@ class HierarchySolver(object):
 
     def liouvillian(self):
         L_incoherent = self.incoherent_superoperator() if np.any(self.jump_operators) and np.any(self.jump_rates) else 0
-        return sp.lil_matrix(-1.j*self.commutator_to_superoperator(self.system_hamiltonian) + L_incoherent, dtype='complex64')
+        return sp.lil_matrix(-1.j*self.commutator_to_superoperator(self.system_hamiltonian) + L_incoherent, dtype='complex128')
     
     def drude_temperature_correction(self):
         # analytic form of sum from k=1 -> k=infty of c_j/nu_j
@@ -385,10 +218,10 @@ class HierarchySolver(object):
         else:
             raise 'Invalid commutator type defined in commutator_to_superoperator function'
         
-        return  np.kron(operator, np.eye(self.system_dimension)) + z * np.kron(np.eye(self.system_dimension), operator)
+        return  np.kron(operator, np.eye(self.system_dimension)) + z * np.kron(np.eye(self.system_dimension), operator.conj())
     
     def incoherent_superoperator(self):
-        L = np.zeros((self.system_dimension**2, self.system_dimension**2), dtype='complex64')
+        L = np.zeros((self.system_dimension**2, self.system_dimension**2), dtype='complex128')
         I = np.eye(self.system_dimension)
         for i in range(self.jump_rates.size):
             A = self.jump_operators[i]
@@ -408,29 +241,6 @@ class HierarchySolver(object):
         # now build the hierarchy matrix
         # diag bits
         hm = sp.kron(sp.eye(num_dms, dtype=dtype), self.liouvillian())
-        
-        # n.gamma bit on diagonal
-        #n_vectors = np.array(n_vectors)
-#         diag_stuff = np.zeros(n_vectors.shape)
-#         diag_stuff[:,:self.heom_sys_dim] = n_vectors[:,:self.heom_sys_dim]
-#         coeff_vector = self.drude_zeroth_order_freqs
-#         if self.num_modes:
-#             for i in range(self.num_modes):
-#                 neg_mode_start_idx = self.heom_sys_dim*(1+2*i)
-#                 pos_mode_start_idx = self.heom_sys_dim*(2+2*i)
-#                 diag_stuff[:,neg_mode_start_idx:pos_mode_start_idx] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] + n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim]
-#                 diag_stuff[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim] = n_vectors[:,neg_mode_start_idx:pos_mode_start_idx] - n_vectors[:,pos_mode_start_idx:pos_mode_start_idx+self.heom_sys_dim]
-#                 # build vector of drude_zeroth_order_freqs + -0.5*mode_dampings + 1j*mode_zetas
-#                 coeff_vector = np.append(coeff_vector, 0.5*self.BO_zeroth_order_freqs[i])
-#                 coeff_vector = np.append(coeff_vector, -1.j*self.BO_zetas[i])
-#                 
-#         if self.num_matsubara_freqs:
-#             diag_stuff[:,self.heom_sys_dim*(1+2*self.num_modes):] = n_vectors[:,self.heom_sys_dim*(1+2*self.num_modes):]
-#             for k in range(self.num_matsubara_freqs):
-#                 mfk = np.zeros(self.heom_sys_dim)
-#                 mfk.fill(self.matsubara_freqs[k])
-#                 coeff_vector = np.append(coeff_vector, mfk)
-
         diag_vectors = np.copy(n_vectors)
         aux_dm_idx = 0
         for site in self.environment:
@@ -448,11 +258,6 @@ class HierarchySolver(object):
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
             hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype=dtype), np.sum(self.tc_terms, axis=0)).astype(dtype)
-#             tc_term = self.drude_temperature_correction()
-#             for i in range(self.num_modes):
-#                 tc_term += self.mode_temperature_correction(i)
-#             Vx_squared = np.sum(np.array([np.dot(Vx,Vx) for Vx in self.temp_correction_Vx_ops]), axis=0)
-#             hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype='complex64').multiply(tc_term), Vx_squared).astype('complex64')
         
         # off diag bits        
         for n in range(self.num_aux_dm_indices):
