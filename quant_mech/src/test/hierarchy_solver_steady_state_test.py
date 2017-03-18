@@ -17,7 +17,7 @@ system_hamiltonian = np.array([[0, 0, 0],
 reorg_energy = 100.
 cutoff_freq = 5.
 temperature = 2.7 # Kelvin
-beta = 0.4 #1. / (utils.KELVIN_TO_WAVENUMS * temperature)
+beta = 4.297 # 0.4 #1. / (utils.KELVIN_TO_WAVENUMS * temperature)
 mode_params = [] #[(200., 0.25, 10.)]
 
 jump_ops = np.array([np.array([[0, 0, 0],
@@ -27,7 +27,7 @@ jump_ops = np.array([np.array([[0, 0, 0],
                                                      [0, 0, 0]])])
 jump_rates = np.array([0.1, 0.0025])
 
-K = 0
+K = 4
 environment = []
 if mode_params: # assuming that there is a single identical mode on each site 
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(mode_params[0][0], mode_params[0][1], mode_params[0][2], beta, K=K)), \
@@ -37,7 +37,7 @@ else:
                    (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),),
                    (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),)]
 hs = HierarchySolver(system_hamiltonian, environment, beta, jump_ops, jump_rates, num_matsubara_freqs=K, temperature_correction=True)
-hs.truncation_level = 20
+hs.truncation_level = 7
 
 hm = hs.construct_hierarchy_matrix_super_fast()
 print 'hierarchy matrix shape: ' + str(hm.shape)
