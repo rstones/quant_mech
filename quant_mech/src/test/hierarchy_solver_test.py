@@ -47,7 +47,7 @@ if mode_params: # assuming that there is a single identical mode on each site
 else:
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K),),
                    (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),)]
-hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=True)
+hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False)
 hs.truncation_level = 12
 
 print 'Calculating time evolution...'
