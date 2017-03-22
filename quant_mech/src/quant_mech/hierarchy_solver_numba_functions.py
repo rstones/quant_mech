@@ -24,10 +24,10 @@ def generate_hierarchy_and_tier_couplings(num_dms, num_indices, truncation_level
     Create sparse coo_matrix back in python land
     '''
     num_non_zero_elements_per_idx = num_dms-dm_per_tier[-2] # [-2] because dm_per_tier has dm for one index higher than required for ease
-    higher_coupling_elements = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.complex64)
+    higher_coupling_elements = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.complex128)
     higher_coupling_row_indices = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.int32)
     higher_coupling_column_indices = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.int32)
-    lower_coupling_elements = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.complex64)
+    lower_coupling_elements = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.complex128)
     lower_coupling_row_indices = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.int32)
     lower_coupling_column_indices = np.zeros((num_indices, num_non_zero_elements_per_idx), dtype=np.int32)
     current_non_zero_element_idx = 0

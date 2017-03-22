@@ -48,7 +48,7 @@ v0 = np.zeros(hm.shape[0])
 v0[0] = 1./3
 v0[4] = 1./3
 v0[8] = 1./3
-evals,evec = spla.eigs(hm.tocsc(), k=1, sigma=0, which='LM', v0=v0)#, ncv=100)
+evals,evec = spla.eigs(hm.tocsc(), k=1, sigma=None, which='SM', v0=v0, ncv=100)
 
 print evals
 evec = evec[:9]
