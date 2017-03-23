@@ -9,6 +9,9 @@ from quant_mech.OBOscillator import OBOscillator
 from quant_mech.UBOscillator import UBOscillator
 from quant_mech.hierarchy_solver import HierarchySolver
 
+import scipy as sp
+print sp.__version__
+
 '''Ishizaki and Fleming params'''
 electronic_coupling = 0.1
 system_hamiltonian = np.array([[0, 0, 0],
