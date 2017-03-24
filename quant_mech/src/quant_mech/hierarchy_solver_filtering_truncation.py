@@ -7,6 +7,14 @@ import numpy as np
 import numba
 
 @numba.jit(nopython=True, cache=True)
+def factorial(n):
+    # should check for negative or non-integer n
+    result = 1
+    for i in range(1,n+1):
+        result *= i
+    return result
+
+@numba.jit(nopython=True, cache=True)
 def generate_hierarchy_graph(num_dms, num_indices, truncation_level, dm_per_tier, coefficients):
     
     hierarchy = np.zeros((num_dms, num_indices))
@@ -60,8 +68,12 @@ def generate_hierarchy_graph(num_dms, num_indices, truncation_level, dm_per_tier
                     elif in_array:
                         current_tier_vec_idx = j
                         break
-                    
-                graph_elements[n,current_non_zero_element_idx] = 
+                
+                coupling = 1.
+                for idx in range(vec.size):
+                    coupling *= coefficients[idx]**vec[idx]
+                coupling /= factorial(np.sum(vec))
+                graph_elements[n,current_non_zero_element_idx] = np.sqrt(coupling)
                 graph_row_indices[n,current_non_zero_element_idx] = tier_start_indices[next_level]+current_tier_vec_idx
                 graph_col_indices[n,current_non_zero_element_idx] = tier_start_indices[next_level-1]+i
 #                 #lower_coupling_matrices[n][tier_start_indices[next_level]+current_tier_vec_idx, tier_start_indices[next_level-1]+i] = np.sqrt(vec[n] / scaling_factors[n])
