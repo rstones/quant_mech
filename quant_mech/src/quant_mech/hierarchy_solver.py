@@ -10,6 +10,7 @@ import scipy.sparse.linalg as spla
 from scipy.integrate import ode
 import quant_mech.utils as utils
 from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings
+from quant_mech.hierarchy_solver_filtering_truncation import generate_hierarchy_couplings
 from quant_mech.OBOscillator import OBOscillator
 from quant_mech.UBOscillator import UBOscillator
 
@@ -18,8 +19,8 @@ class HierarchySolver(object):
     classdocs
     '''
     
-    def __init__(self, hamiltonian, environment, beta, jump_operators=None, jump_rates=None, \
-                 num_matsubara_freqs=0, temperature_correction=False):
+    def __init__(self, hamiltonian, environment, beta, jump_operators=None, jump_rates=None, N=1,\
+                 num_matsubara_freqs=0, temperature_correction=False, filter=False):
         '''
         Constructor
         '''
@@ -28,8 +29,10 @@ class HierarchySolver(object):
         self.beta = beta
         self.jump_operators = jump_operators
         self.jump_rates = jump_rates
+        self.truncation_level = N
         self.num_matsubara_freqs = num_matsubara_freqs
         self.temperature_correction = temperature_correction
+        self.filter = filter
         
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
@@ -51,6 +54,7 @@ class HierarchySolver(object):
             self.thetax_coeffs = []
             self.thetao_coeffs = []
             self.tc_terms = []
+            self.coefficients = []
             for i,site in enumerate(self.environment):
                 if site:
                     site_coupling_operator = np.zeros((self.system_dimension, self.system_dimension))
@@ -67,6 +71,7 @@ class HierarchySolver(object):
                             self.thetao_coeffs.append(self.thetao_coeff_OBO(osc))
                             self.Vx_operators.append(site_Vx_operator)
                             self.Vo_operators.append(site_Vo_operator)
+                            self.coefficients.append(osc.coeffs[0])
                         elif isinstance(osc, UBOscillator):
                             self.diag_coeffs.append(0.5*osc.damping)
                             self.diag_coeffs.append(-1.j*osc.zeta)
@@ -80,6 +85,8 @@ class HierarchySolver(object):
                             self.Vx_operators.append(site_Vx_operator)
                             self.Vo_operators.append(site_Vo_operator)
                             self.Vo_operators.append(site_Vo_operator)
+                            self.coefficients.append(osc.coeffs[0])
+                            self.coefficients.append(osc.coeffs[1])
                         tc_term += osc.temp_correction_sum() \
                                         - np.sum([osc.temp_correction_sum_kth_term(k) for k in range(1,self.num_matsubara_freqs+1)])
                     self.tc_terms.append(tc_term * np.dot(site_Vx_operator, site_Vx_operator))
@@ -90,10 +97,15 @@ class HierarchySolver(object):
                         self.thetao_coeffs.append(0)
                         self.Vx_operators.append(site_Vx_operator)
                         self.Vo_operators.append(site_Vo_operator)
+                        c = 0
+                        for osc in site:
+                            c += osc.coeffs[k] if isinstance(osc,OBOscillator) else osc.coeffs[k+1]
+                        self.coefficients.append(c)
         else:
             raise ValueError("Environment defined in invalid format!")
 
         self.num_aux_dm_indices = len(self.diag_coeffs)
+        self.num_dms = self.number_density_matrices()
         self.diag_coeffs = np.array(self.diag_coeffs)
         self.phix_coeffs = np.array(self.phix_coeffs)
         self.thetax_coeffs = np.array(self.thetax_coeffs)
@@ -164,11 +176,11 @@ class HierarchySolver(object):
         return int(np.sum(self.pascals_triangle()[self.num_aux_dm_indices-1][:self.truncation_level]))
     
     def M_dimension(self):
-        return self.number_density_matrices() * self.system_dimension**2
+        return (self.number_density_matrices() if not self.filter else self.num_dms) * self.system_dimension**2
         
     # constructs initial vector from initial system density matrix
     def construct_init_vector(self):
-        init_vector = np.zeros(self.M_dimension(), dtype='complex64')
+        init_vector = np.zeros(self.M_dimension(), dtype='complex128')
         init_vector[:self.system_dimension**2] = self.init_system_dm.flatten()
         return init_vector
 
@@ -232,10 +244,20 @@ class HierarchySolver(object):
     
     def construct_hierarchy_matrix_super_fast(self):
         num_dms = self.number_density_matrices()
+        full_num_dms = num_dms
+        print 'Num ADOs for truncation level ' + str(self.truncation_level)+ ': ' + str(full_num_dms)
         n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
-                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
-                                                                                       self.dm_per_tier())
-        
+                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices, ados_to_delete = generate_hierarchy_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                                                                                       self.dm_per_tier(), self.coefficients)
+    
+        if self.filter:
+            ado_idx =  np.unique(ados_to_delete[:,1])
+            num_dms -= ado_idx.shape[0]
+            print 'Num ADOs after filtering: ' + str(num_dms)
+            self.num_dms = num_dms
+            #n_vectors = np.delete(n_vectors, ado_idx, axis=0)
+            n_vectors = np.delete(n_vectors, ados_to_delete[:,1], axis=0)
+
         dtype = 'complex128'
         
         # now build the hierarchy matrix
@@ -257,12 +279,19 @@ class HierarchySolver(object):
         hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype=dtype), sp.eye(self.system_dimension**2, dtype=dtype))
         # include temperature correction / Markovian truncation term for Matsubara frequencies
         if self.temperature_correction:
-            hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype=dtype), np.sum(self.tc_terms, axis=0)).astype(dtype)
+            hm -= sp.kron(sp.eye(num_dms, dtype=dtype), np.sum(self.tc_terms, axis=0)).astype(dtype)
         
         # off diag bits        
         for n in range(self.num_aux_dm_indices):
-            higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
-            lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
+            higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(full_num_dms, full_num_dms)).tocsr()
+            lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(full_num_dms, full_num_dms)).tocsr()
+            if self.filter:
+                mask = np.ones(full_num_dms, dtype=bool)
+                mask[list(ados_to_delete[:,1])] = False
+                higher_coupling_matrix = higher_coupling_matrix[mask]
+                lower_coupling_matrix = lower_coupling_matrix[mask]
+                higher_coupling_matrix = higher_coupling_matrix.transpose()[mask].transpose()
+                lower_coupling_matrix = lower_coupling_matrix.transpose()[mask].transpose()
             hm -= sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n]) \
                             + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n])
         

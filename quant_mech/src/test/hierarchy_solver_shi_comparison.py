@@ -31,7 +31,7 @@ cutoff_freq = 1. / beta
 
 mode_params = [] #[(200., 0.25, 10.)]
 
-K = 0
+K = 1
 environment = []
 if mode_params: # assuming that there is a single identical mode on each site 
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(mode_params[0][0], mode_params[0][1], mode_params[0][2], beta, K=K)), \
@@ -39,7 +39,7 @@ if mode_params: # assuming that there is a single identical mode on each site
 else:
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K),),
                    (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),)]
-hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=True)
+hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False, filter=False)
 hs.truncation_level = 20
 
 print 'Calculating time evolution...'
