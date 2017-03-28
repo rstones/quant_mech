@@ -18,7 +18,7 @@ class HierarchySolver(object):
     classdocs
     '''
     
-    def __init__(self, hamiltonian, environment, beta, jump_operators=None, jump_rates=None, \
+    def __init__(self, hamiltonian, environment, beta, jump_operators=None, jump_rates=None, N=1, \
                  num_matsubara_freqs=0, temperature_correction=False):
         '''
         Constructor
@@ -28,6 +28,7 @@ class HierarchySolver(object):
         self.beta = beta
         self.jump_operators = jump_operators
         self.jump_rates = jump_rates
+        self.truncation_level = N
         self.num_matsubara_freqs = num_matsubara_freqs
         self.temperature_correction = temperature_correction
         

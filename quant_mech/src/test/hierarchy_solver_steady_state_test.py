@@ -44,6 +44,9 @@ hs.truncation_level = 7
 
 hm = hs.construct_hierarchy_matrix_super_fast()
 print 'hierarchy matrix shape: ' + str(hm.shape)
+print hs.dm_per_tier()
+
+np.savez('DQD_heom_matrix_N7_K4.npz', hm=hm)
 
 import scipy.sparse.linalg as spla
 np.set_printoptions(precision=6, linewidth=150, suppress=True)
