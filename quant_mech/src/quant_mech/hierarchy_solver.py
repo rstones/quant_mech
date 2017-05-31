@@ -19,7 +19,7 @@ class HierarchySolver(object):
     '''
     
     def __init__(self, hamiltonian, environment, beta, jump_operators=None, jump_rates=None, N=1, \
-                 num_matsubara_freqs=0, temperature_correction=False):
+                 num_matsubara_freqs=0, temperature_correction=False, dissipator_test=False):
         '''
         Constructor
         '''
@@ -31,6 +31,13 @@ class HierarchySolver(object):
         self.truncation_level = N
         self.num_matsubara_freqs = num_matsubara_freqs
         self.temperature_correction = temperature_correction
+        
+        '''
+        dissipator_test is a flag to include the Lindblad dissipator in the top level of 
+        the hierarchy only
+        It is used in self.liouvillian() and self.construct_hierarchy_matrix_super_fast()
+        '''
+        self.dissipator_test = dissipator_test
         
         self.system_evalues, self.system_evectors = utils.sorted_eig(self.system_hamiltonian)
         self.system_evectors = self.system_evectors.T
@@ -174,7 +181,10 @@ class HierarchySolver(object):
         return init_vector
 
     def liouvillian(self):
-        L_incoherent = self.incoherent_superoperator() if np.any(self.jump_operators) and np.any(self.jump_rates) else 0
+        if not self.dissipator_test:
+            L_incoherent = self.incoherent_superoperator() if np.any(self.jump_operators) and np.any(self.jump_rates) else 0
+        else:
+            L_incoherent = 0
         return sp.lil_matrix(-1.j*self.commutator_to_superoperator(self.system_hamiltonian) + L_incoherent, dtype='complex128')
     
     def drude_temperature_correction(self):
@@ -242,6 +252,12 @@ class HierarchySolver(object):
         # now build the hierarchy matrix
         # diag bits
         hm = sp.kron(sp.eye(num_dms, dtype=dtype), self.liouvillian())
+        
+        if self.dissipator_test: # need to have jump_operators and rates in conjunction with dissipator_test = True
+            top_level = sp.lil_matrix((num_dms, num_dms), dtype=dtype)
+            top_level[0,0] = 1.
+            hm += sp.kron(top_level, self.incoherent_superoperator())
+        
         diag_vectors = np.copy(n_vectors)
         aux_dm_idx = 0
         for site in self.environment:
