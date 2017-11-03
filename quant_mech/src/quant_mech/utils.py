@@ -57,16 +57,16 @@ def orthog_basis_set(basisSize):
 #                    be traced out was used. Should take value 1 or 2.
 #
 # @returns redDM (array) 
-#########################################################################################################    
+#########################################################################################################
 def partial_trace(density_matrix, trace_basis, order=2):
      
     dim_reduced_dm = density_matrix.shape[0] / trace_basis[0].shape[0]
-    reduced_dm = np.zeros((dim_reduced_dm, dim_reduced_dm))
-    I_sys = np.eye(dim_reduced_dm, dim_reduced_dm)
+    reduced_dm = np.zeros((dim_reduced_dm, dim_reduced_dm), dtype=density_matrix.dtype)
+    I_sys = np.eye(dim_reduced_dm, dim_reduced_dm, dtype=density_matrix.dtype)
 
     for i in range(len(trace_basis)):
         trace_state = np.kron(I_sys, trace_basis[i]) if order == 2 else np.kron(trace_basis[i], I_sys)
-        reduced_dm += np.dot(trace_state.T, np.dot(density_matrix, trace_state))
+        reduced_dm += np.dot(trace_state, np.dot(density_matrix, trace_state.T))
 
     return reduced_dm
   
@@ -217,7 +217,7 @@ def stationary_state_svd(liouvillian, density_vector_populations):
 # x is independent variable
 def differentiate_function(f, x):
     dx = x[1] - x[0]
-    result = np.empty(f.shape, dtype='complex')
+    result = np.empty(f.shape, dtype='complex128')
     for i,v in enumerate(f):
         result[i] = (f[i+1] - f[i]) / dx if i < f.size-1 else 0
     return result
