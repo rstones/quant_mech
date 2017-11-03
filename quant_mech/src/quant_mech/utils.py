@@ -117,6 +117,18 @@ def general_thermal_state(hamiltonian, temp):
     
     return density_matrix / Z
 
+def general_thermal_state_beta(hamiltonian, beta):
+    basis_size = hamiltonian.shape[0]
+    density_matrix = np.zeros((basis_size, basis_size))
+    Z = 0  #init normalisation constant
+    
+    for i in range(basis_size):
+        x = np.exp(-hamiltonian[i,i] * beta)
+        density_matrix[i,i] = x
+        Z += x
+    
+    return density_matrix / Z
+
 '''
 Function to find stationary state of Liouvillian by diagonalisation
 Assumes Liouvillian is in basis which results from density_matrix.flatten()

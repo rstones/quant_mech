@@ -285,6 +285,53 @@ class HierarchySolver(object):
         
         return hm.astype(dtype)
     
+    def construct_hierarchy_matrix_steady_state_solver(self, epsilon):
+        num_dms = self.number_density_matrices()
+        n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
+                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                                                                                       self.dm_per_tier())
+        
+        dtype = 'complex128'
+        
+        # start with relaxation parameter
+        hm = sp.kron(epsilon*sp.eye(num_dms, dtype=dtype), sp.eye(self.system_dimension**2, dtype=dtype))
+        
+        # diag bits
+#         hm = sp.kron(epsilon*sp.eye(num_dms, dtype=dtype), self.liouvillian())
+#         
+#         if self.dissipator_test: # need to have jump_operators and rates in conjunction with dissipator_test = True
+#             top_level = sp.lil_matrix((num_dms, num_dms), dtype=dtype)
+#             top_level[0,0] = 1.
+#             hm += sp.kron(top_level, self.incoherent_superoperator())
+#         
+#         diag_vectors = np.copy(n_vectors)
+#         aux_dm_idx = 0
+#         for site in self.environment:
+#             if site:
+#                 for osc in site:
+#                     if isinstance(osc, OBOscillator):
+#                         aux_dm_idx += 1
+#                     elif isinstance(osc, UBOscillator):
+#                         diag_vectors[:,aux_dm_idx] = n_vectors[:,aux_dm_idx] + n_vectors[:,aux_dm_idx+1]
+#                         diag_vectors[:,aux_dm_idx+1] = n_vectors[:,aux_dm_idx+1] - n_vectors[:,aux_dm_idx] 
+#                         aux_dm_idx += 2
+#                 aux_dm_idx += self.num_matsubara_freqs
+# 
+#         hm -= sp.kron(sp.diags(np.dot(diag_vectors, self.diag_coeffs), dtype=dtype), sp.eye(self.system_dimension**2, dtype=dtype))
+
+        # include temperature correction / Markovian truncation term for Matsubara frequencies
+        if self.temperature_correction:
+            hm -= sp.kron(sp.eye(self.number_density_matrices(), dtype=dtype), np.sum(self.tc_terms, axis=0)).astype(dtype)
+        
+        # off diag bits        
+        for n in range(self.num_aux_dm_indices):
+            higher_coupling_matrix = sp.coo_matrix((higher_coupling_elements[n], (higher_coupling_row_indices[n], higher_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
+            lower_coupling_matrix = sp.coo_matrix((lower_coupling_elements[n], (lower_coupling_row_indices[n], lower_coupling_column_indices[n])), shape=(num_dms, num_dms)).tocsr()
+            hm -= sp.kron(higher_coupling_matrix.multiply(self.phix_coeffs[n]) + lower_coupling_matrix.multiply(self.thetax_coeffs[n]), self.Vx_operators[n]) \
+                            + sp.kron(lower_coupling_matrix.multiply(self.thetao_coeffs[n]), self.Vo_operators[n])
+        
+        return hm.astype(dtype)
+    
     def construct_hierarchy_matrix_no_numba(self, n_vectors, \
                                             higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
                                             lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices):
