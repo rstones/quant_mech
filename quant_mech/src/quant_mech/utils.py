@@ -60,7 +60,7 @@ def orthog_basis_set(basisSize):
 #########################################################################################################
 def partial_trace(density_matrix, trace_basis, order=2):
      
-    dim_reduced_dm = density_matrix.shape[0] / trace_basis[0].shape[0]
+    dim_reduced_dm = int(density_matrix.shape[0] / trace_basis[0].shape[0])
     reduced_dm = np.zeros((dim_reduced_dm, dim_reduced_dm), dtype=density_matrix.dtype)
     I_sys = np.eye(dim_reduced_dm, dim_reduced_dm, dtype=density_matrix.dtype)
 
@@ -140,7 +140,7 @@ def stationary_state(liouvillian, populations=None):
     
     dimDM = np.sqrt(stationary_state.shape[0])
     if dimDM % 1 == 0: # check that dimension is an integer, therefore a square number
-        stationary_state.shape = (dimDM, dimDM)    
+        stationary_state.shape = (int(dimDM), int(dimDM))    
         return (stationary_state / np.trace(stationary_state)).flatten()
     elif dimDM % 1 != 0 and populations.all():
         return classical_stationary_state(liouvillian)
@@ -211,7 +211,7 @@ def nullspace(A, atol=1e-13, rtol=0):
         elif ns.shape[1] == 1:
             break
         elif ns.shape[1] and ns.shape[1] > 1:
-            print "WARNING: more than one stationary state found using nullspace function!"
+            print("WARNING: more than one stationary state found using nullspace function!")
             return ns.T[1]
     return ns
 

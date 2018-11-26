@@ -12,6 +12,7 @@ import quant_mech.time_utils as tutils
 from quant_mech.OBOscillator import OBOscillator
 from quant_mech.UBOscillator import UBOscillator
 from matplotlib.ticker import AutoMinorLocator
+from quant_mech.hierarchy_solver_nonrenorm import HierarchySolverNonRenorm
 
 np.set_printoptions(precision=6, linewidth=200, suppress=False)
 
@@ -22,9 +23,9 @@ time_step = 0.001
 duration = 0.2 # inverse wavenums
 
 '''Ishizaki and Fleming params'''
-electronic_coupling = 100.
+electronic_coupling = 20.
 system_hamiltonian = np.array([[100., electronic_coupling], [electronic_coupling, 0]])
-reorg_energy = 100.
+reorg_energy = 2000.
 cutoff_freq = 53.08
 temperature = 300. # Kelvin
 beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
@@ -39,7 +40,7 @@ mode_params = [] #[(200., 0.25, 10.)]
 # beta = 1. / (utils.KELVIN_TO_WAVENUMS * temperature)
 # mode_params = [] #[(1111., 0.0578, 50.)]
 
-K =0
+K = 0
 environment = []
 if mode_params: # assuming that there is a single identical mode on each site 
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K), UBOscillator(mode_params[0][0], mode_params[0][1], mode_params[0][2], beta, K=K)), \
@@ -48,7 +49,8 @@ else:
     environment = [(OBOscillator(reorg_energy, cutoff_freq, beta, K=K),),
                    (OBOscillator(reorg_energy, cutoff_freq, beta, K=K),)]
 hs = HierarchySolver(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False)
-hs.truncation_level = 12
+#hs = HierarchySolverNonRenorm(system_hamiltonian, environment, beta, num_matsubara_freqs=K, temperature_correction=False)
+hs.truncation_level = 30
 
 print 'Calculating time evolution...'
 start = tutils.getTime()

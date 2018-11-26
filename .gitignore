@@ -16,3 +16,7 @@ __pycache__/
 
 # ignore numpy data files
 .npz
+
+# ignore eclipse project files
+.project
+.pydevproject

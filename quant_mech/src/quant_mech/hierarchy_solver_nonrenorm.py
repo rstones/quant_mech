@@ -1,7 +1,7 @@
 '''
-Created on 21 Mar 2014
+Created on 18 Nov 2017
 
-@author: rstones
+@author: richard
 '''
 import numpy as np
 import scipy.linalg as la
@@ -9,11 +9,11 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 from scipy.integrate import ode
 import quant_mech.utils as utils
-from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings
+from quant_mech.hierarchy_solver_numba_functions import generate_hierarchy_and_tier_couplings_nonrenorm
 from quant_mech.OBOscillator import OBOscillator
 from quant_mech.UBOscillator import UBOscillator
 
-class HierarchySolver(object):
+class HierarchySolverNonRenorm(object):
     '''
     classdocs
     '''
@@ -113,15 +113,13 @@ class HierarchySolver(object):
         return np.array([2.*np.pi*k / self.beta for k in range(1,self.num_matsubara_freqs+1)])
                             
     def phix_coeff_OBO(self, osc):
-        return 1.j * np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))
+        return 1.j
         
     def thetax_coeff_OBO(self, osc):
-        return 1.j * (1. / np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))) \
-                            * osc.reorg_energy*osc.cutoff_freq / np.tan(osc.beta*osc.cutoff_freq/2.)
+        return 1.j * osc.reorg_energy*osc.cutoff_freq / np.tan(osc.beta*osc.cutoff_freq/2.)
     
     def thetao_coeff_OBO(self, osc):
-        return (1. / np.sqrt(np.sqrt(np.abs(osc.coeffs[0] * osc.coeffs[0].conj())))) \
-                            * osc.reorg_energy*osc.cutoff_freq
+        return osc.reorg_energy*osc.cutoff_freq
                         
     def phix_coeff_UBO(self, osc, pm=1):
         return 1.j * np.sqrt(np.sqrt(np.abs( osc.coeffs[0 if pm>0 else 1] * osc.coeffs[1 if pm>0 else 0].conj() )))
@@ -244,7 +242,7 @@ class HierarchySolver(object):
     def construct_hierarchy_matrix_super_fast(self):
         num_dms = self.number_density_matrices()
         n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
-                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings_nonrenorm(num_dms, self.num_aux_dm_indices, self.truncation_level, \
                                                                                        self.dm_per_tier())
         
         dtype = 'complex128'
@@ -288,7 +286,7 @@ class HierarchySolver(object):
     def construct_efficient_steady_state_solver_matrices(self, epsilon):
         num_dms = self.number_density_matrices()
         n_vectors, higher_coupling_elements, higher_coupling_row_indices, higher_coupling_column_indices, \
-                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings(num_dms, self.num_aux_dm_indices, self.truncation_level, \
+                lower_coupling_elements, lower_coupling_row_indices, lower_coupling_column_indices = generate_hierarchy_and_tier_couplings_nonrenorm(num_dms, self.num_aux_dm_indices, self.truncation_level, \
                                                                                        self.dm_per_tier())
         
         dtype = 'complex128'
@@ -354,7 +352,7 @@ class HierarchySolver(object):
 #             prev_steady_state = steady_state[:self.system_dimension**2].copy()
             count += 1
             if not count % 100:
-                print(steady_state[:self.system_dimension**2])
+                print steady_state[:self.system_dimension**2]
         
         
         return steady_state
@@ -438,12 +436,12 @@ class HierarchySolver(object):
         self.truncation_level = init_trunc - 1
         previous_history, time = self.calculate_time_evolution(time_step, duration)
         
-        print(current_history.shape)
-        print(previous_history.shape)
+        print current_history.shape
+        print previous_history.shape
         
         # if not already converged re-calculate time evolution at incrementally higher orders of truncation until convergence is reached    
         if self.check_dm_history_convergence(current_history, previous_history, accuracy):
-            print("Hierarchy converged first time!")
+            print "Hierarchy converged first time!"
         elif init_trunc < max_trunc:
             converged = False
             current_level = init_trunc
@@ -454,11 +452,11 @@ class HierarchySolver(object):
                 current_level += 1
                 current_history = next_history
             if converged:
-                print("Hierarchy converged at N = " + str(current_level))
+                print "Hierarchy converged at N = " + str(current_level)
             else:
-                print("Hierarchy did not converge but reached max truncation level")
+                print "Hierarchy did not converge but reached max truncation level"
         else:
-            print("Hierarchy did not converge but reached max truncation level")
+            print "Hierarchy did not converge but reached max truncation level"
         return current_history, time
     
     def transform_to_exciton_basis(self, dm_history):
@@ -494,7 +492,7 @@ class HierarchySolver(object):
         previous_steady_state = self.normalise_steady_state(self.extract_system_density_matrix(self.hierarchy_steady_state()))
         
         if self.check_steady_state_convergence(current_steady_state, previous_steady_state, accuracy):
-            print("Steady state converged first time!")
+            print "Steady state converged first time!"
         elif init_trunc < max_trunc:
             converged = False
             current_level = init_trunc
@@ -505,11 +503,11 @@ class HierarchySolver(object):
                 current_level += 1
                 current_steady_state = next_steady_state
             if converged:
-                print("Steady state converged at N = " + str(current_level))
+                print "Steady state converged at N = " + str(current_level)
             else:
-                print("Steady state did not converge but reached max truncation level")
+                print "Steady state did not converge but reached max truncation level"
         else:
-            print("Steady state did not converge but max truncation level was reached")
+            print "Steady state did not converge but max truncation level was reached"
             
         return current_steady_state
     
@@ -538,7 +536,7 @@ class HierarchySolver(object):
         hierarchy_matrix = self.construct_hierarchy_matrix_fast()
         init_state = self.construct_init_vector()
         evalue, steady_state = spla.eigs(hierarchy_matrix.tocsc(), k=1, sigma=0, which='LM', v0=init_state) # using eigs in shift-invert mode by setting sigma=0 and which='LM'
-        print('calculated steady state')
+        print 'calculated steady state'
         return steady_state
     
     def normalised_steady_state(self):
